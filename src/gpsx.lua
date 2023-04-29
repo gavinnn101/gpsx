@@ -190,6 +190,43 @@ function loadScript(arg)
                 Util.notify("Auto ultra lucky disabled")
             end
         end,
+
+        -- Unlock gamepasses
+        unlockGamepasses = function()
+            Util.notify("Unlocking gamepasses")
+            task.spawn(function()
+                if getgenv().settings.Misc.unlock_gamepasses_toggle then
+                    Lib.Gamepasses.Owns = function() return true end
+                    local teleportScript = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+                    teleportScript.UpdateAreas()
+                    teleportScript.UpdateBottom()
+                else
+                    Lib.Gamepasses.Owns = function(p1, p2)
+                        if not p2 then
+                            p2 = game:GetService("Players").LocalPlayer;
+                        end;
+                        v2 = Lib.Save.Get();
+                        if not v2 then
+                            return;
+                        end;
+                        l__Gamepasses__3 = v2.Gamepasses;
+                        for v4, v5 in pairs(v2.Gamepasses) do
+                            if tostring(v5) == tostring(p1) then
+                                return true;
+                            end;
+                        end;
+                        return false;
+                    end;
+                    local teleportScript = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+                    teleportScript.UpdateAreas()
+                    teleportScript.UpdateBottom()
+                    -- This doesn't seem to work anymore but can't easily see why. Path looks correct and I see calls to UpdateButton. No errors in either console.
+                    -- Unlock gamepasses in Huge Games doesn't seem to unlock hoverboard either.
+                    local hover = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.Game.Hoverboard)
+                    hover.UpdateButton()
+                end
+            end)
+        end,
     }
 
     -- Create GUI
@@ -209,6 +246,7 @@ function setSettingDefaults()
             egg_choice = "Cracked Egg",
         },
         Misc = {
+            unlock_gamepasses_toggle = false,
             auto_collect_gifts_toggle = false,
             auto_redeem_rank_rewards_toggle = false,
             auto_triple_coins_toggle = false,

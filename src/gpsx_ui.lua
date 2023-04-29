@@ -130,6 +130,25 @@ function createGUI(group, actions)
         print("Creating Misc tab...")
         local miscTab = Window:CreateTab("Misc")
 
+        -- Unlock gamepass section
+        local unlockGamepassesSection = miscTab:CreateSection("Unlock gamepasses:")
+
+        -- Unlock gamepasses toggle
+        local unlockGamepassesToggle = miscTab:CreateToggle({
+            Name = "Unlock gamepasses (only teleport is real)",
+            CurrentValue = getgenv().settings.Misc.unlock_gamepasses_toggle,
+            Flag = "unlock_gamepasses_toggle",
+            Callback = function(Value)
+                getgenv().settings.Misc.unlock_gamepasses_toggle = Value
+                if Value then
+                    actions.unlockGamepasses()
+                else
+                    Util.notify("Unlock gamepasses disabled")
+                end
+            end,
+        })
+
+        -- Auto claim section
         local autoClaimSection = miscTab:CreateSection("Auto claim:")
 
         -- Collect free gifts toggle
