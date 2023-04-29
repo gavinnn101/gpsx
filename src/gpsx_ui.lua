@@ -77,9 +77,6 @@ function createGUI(group, actions)
             end,
         })
 
-         -- Auto Hatch Egg dropdowns section
-         local eggChoicesSection = autoHatchTab:CreateSection("Egg Choice Section")
-
          -- Auto Hatch Egg dropdown
          local eggData = Util.getEggData()
          local sortedEggsList = Util.getSortedEggList(eggData)
@@ -94,6 +91,8 @@ function createGUI(group, actions)
                 actions.getEggChoice(Option)
             end,
          })
+
+         local gamepassDisclaimerSection = autoHatchTab:CreateSection("Must own gamepass to use:")
 
          -- Triple hatch toggle
         local tripleHatchToggle = autoHatchTab:CreateToggle({
