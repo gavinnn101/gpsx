@@ -56,7 +56,7 @@ function loadScript(arg)
                 task.spawn(function()
                     while getgenv().settings.AutoHatch.auto_hatch_enabled_toggle do
                         Util.notify("Hatching egg: " .. getgenv().settings.AutoHatch.egg_choice)
-                        Invoke("Buy Egg", getgenv().settings.AutoHatch.egg_choice, getgenv().settings.AutoHatch.triple_hatch_toggle)
+                        Invoke("Buy Egg", getgenv().settings.AutoHatch.egg_choice, getgenv().settings.AutoHatch.triple_hatch_toggle, getgenv().settings.AutoHatch.octuple_hatch_toggle)
                         task.wait(1.2)
                     end
                 end)
@@ -123,6 +123,7 @@ function setSettingDefaults()
         AutoHatch = {
             auto_hatch_enabled_toggle = false,
             triple_hatch_toggle = false,
+            octuple_hatch_toggle = false,
             egg_choice = "Cracked Egg",
         },
         Misc = {

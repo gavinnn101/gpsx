@@ -96,19 +96,34 @@ function createGUI(group, actions)
          })
 
          -- Triple hatch toggle
-            local tripleHatchToggle = autoHatchTab:CreateToggle({
-                Name = "Triple Hatch",
-                CurrentValue = getgenv().settings.AutoHatch.triple_hatch_toggle,
-                Flag = "triple_hatch_toggle",
-                Callback = function(Value)
-                    getgenv().settings.AutoHatch.triple_hatch_toggle = Value
-                    if Value then
-                        Util.notify("Triple hatch enabled")
-                    else
-                        Util.notify("Triple hatch disabled")
-                    end
-                end,
-            })
+        local tripleHatchToggle = autoHatchTab:CreateToggle({
+            Name = "Triple Hatch",
+            CurrentValue = getgenv().settings.AutoHatch.triple_hatch_toggle,
+            Flag = "triple_hatch_toggle",
+            Callback = function(Value)
+                getgenv().settings.AutoHatch.triple_hatch_toggle = Value
+                if Value then
+                    Util.notify("Triple hatch enabled")
+                else
+                    Util.notify("Triple hatch disabled")
+                end
+            end,
+        })
+
+        -- Octuple hatch toggle
+        local octupleHatchToggle = autoHatchTab:CreateToggle({
+            Name = "Octuple Hatch",
+            CurrentValue = getgenv().settings.AutoHatch.octuple_hatch_toggle,
+            Flag = "octuple_hatch_toggle",
+            Callback = function(Value)
+                getgenv().settings.AutoHatch.octuple_hatch_toggle = Value
+                if Value then
+                    Util.notify("Octuple hatch enabled")
+                else
+                    Util.notify("Octuple hatch disabled")
+                end
+            end,
+        })
     end
 
     -- Misc settings tab
