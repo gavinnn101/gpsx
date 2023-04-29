@@ -227,6 +227,23 @@ function loadScript(arg)
                 end
             end)
         end,
+
+        -- Auto Collect Orbs
+        autoCollectOrbs = function()
+            if getgenv().settings.AutoFarm.auto_collect_orbs_toggle then
+                Util.notify("Auto orbs enabled")
+                task.spawn(function()
+                    while getgenv().settings.AutoFarm.auto_collect_orbs_toggle do
+                        for i,v in pairs(game:GetService("Workspace")["__THINGS"].Orbs:GetChildren()) do
+                            v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+                        end
+                        task.wait(2)
+                    end
+                end)
+            else
+                Util.notify("Auto orbs disabled")
+            end
+        end,
     }
 
     -- Create GUI
@@ -237,7 +254,8 @@ end
 function setSettingDefaults()
     getgenv().settings = {
         AutoFarm = {
-            auto_farm_enabled_toggle = false
+            auto_farm_enabled_toggle = false,
+            auto_collect_orbs_toggle = false,
         },
         AutoHatch = {
             auto_hatch_enabled_toggle = false,

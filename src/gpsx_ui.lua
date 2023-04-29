@@ -54,6 +54,17 @@ function createGUI(group, actions)
                 actions.startAutoFarm(Value)
             end,
          })
+
+        -- Auto collect orbs toggle
+        local autoCollectOrbsToggle = autoFarmTab:CreateToggle({
+            Name = "Auto Collect Orbs",
+            CurrentValue = getgenv().settings.AutoFarm.auto_collect_orbs_toggle,
+            Flag = "auto_collect_orbs_toggle",
+            Callback = function(Value)
+                getgenv().settings.AutoFarm.auto_collect_orbs_toggle = Value
+                actions.autoCollectOrbs()
+            end,
+        })
     end
 
     -- Auto Hatch tab
