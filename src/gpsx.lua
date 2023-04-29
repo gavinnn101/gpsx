@@ -14,7 +14,7 @@ function loadScript(arg)
 
     -- Main script functionality
     local group = arg
-    Util.loadSettings(group)
+    getgenv().settings = Util.loadSettings(group)
     local HttpService = game:GetService('HttpService')
 
     -- Bypass environment check to allow use of invoke and fire
@@ -45,7 +45,7 @@ function loadScript(arg)
         -- Get egg choice
         getEggChoice = function(choice)
             -- Parse egg name from `egg.displayName - egg.World`
-            eggChoice = string.match(choice[1], "^(.-) %-")
+            getgenv().settings.AutoHatch.egg_choice = string.match(choice[1], "^(.-) %-")
         end,
 
         -- auto hatch
@@ -56,7 +56,7 @@ function loadScript(arg)
                 task.spawn(function()
                     while getgenv().settings.AutoHatch.auto_hatch_enabled_toggle do
                         Util.notify("Hatching egg: " .. getgenv().settings.AutoHatch.egg_choice)
-                        Invoke("Buy Egg", getgenv().settings.AutoHatch.egg_choice)
+                        Invoke("Buy Egg", getgenv().settings.AutoHatch.egg_choice, getgenv().settings.AutoHatch.triple_hatch_toggle)
                         task.wait(1.2)
                     end
                 end)
@@ -122,7 +122,8 @@ function setSettingDefaults()
         },
         AutoHatch = {
             auto_hatch_enabled_toggle = false,
-            egg_choice = {"Cracked Egg"}
+            triple_hatch_toggle = false,
+            egg_choice = "Cracked Egg",
         },
         Misc = {
             auto_collect_gifts_toggle = false,

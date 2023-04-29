@@ -16,7 +16,7 @@ function createGUI(group, actions)
             LoadingTitle = "GPSX Loading",
             LoadingSubtitle = "GaviNNN#3281",
             ConfigurationSaving = {
-               Enabled = true,
+               Enabled = false,
                FolderName = "gpsx",
                FileName = group .. "_settings",
             },
@@ -94,6 +94,21 @@ function createGUI(group, actions)
                 actions.getEggChoice(Option)
             end,
          })
+
+         -- Triple hatch toggle
+            local tripleHatchToggle = autoHatchTab:CreateToggle({
+                Name = "Triple Hatch",
+                CurrentValue = getgenv().settings.AutoHatch.triple_hatch_toggle,
+                Flag = "triple_hatch_toggle",
+                Callback = function(Value)
+                    getgenv().settings.AutoHatch.triple_hatch_toggle = Value
+                    if Value then
+                        Util.notify("Triple hatch enabled")
+                    else
+                        Util.notify("Triple hatch disabled")
+                    end
+                end,
+            })
     end
 
     -- Misc settings tab
