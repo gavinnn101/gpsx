@@ -27,8 +27,6 @@ function loadScript(arg)
        return true
     end)
 
-    local player = game.Players.LocalPlayer
-
     Util.notify("Script loaded with settings: " .. group)
 
     -- Game automation functions linked to Rayfield GUI components in gpsx_ui.lua
@@ -108,6 +106,90 @@ function loadScript(arg)
                 end)
             end
         end,
+
+        -- auto triple coins
+        autoTripleCoins = function()
+            if getgenv().settings.Misc.auto_triple_coins_toggle then
+                Util.notify("Auto triple coins enabled")
+                task.spawn(function()
+                    while getgenv().settings.Misc.auto_triple_coins_toggle do
+                        -- activate triple coins "potion" if not already active
+                        local Save = Lib.Save.Get()
+                        if Save["Boosts"]["Triple Coins"] == nil or Save["Boosts"]["Triple Coins"] < 60 then
+                            Util.notify("Activating triple coins")
+                            Fire("Activate Boost", "Triple Coins")
+                            task.wait(5)
+                        end
+                        task.wait(5)
+                    end
+                end)
+            else
+                Util.notify("Auto triple coins disabled")
+            end
+        end,
+
+        -- Auto triple damage
+        autoTripleDamage = function()
+            if getgenv().settings.Misc.auto_triple_damage_toggle then
+                Util.notify("Auto triple damage enabled")
+                task.spawn(function()
+                    while getgenv().settings.Misc.auto_triple_damage_toggle do
+                        -- activate triple damage "potion" if not already active
+                        local Save = Lib.Save.Get()
+                        if Save["Boosts"]["Triple Damage"] == nil or Save["Boosts"]["Triple Damage"] < 60 then
+                            Util.notify("Activating triple damage")
+                            Fire("Activate Boost", "Triple Damage")
+                            task.wait(5)
+                        end
+                        task.wait(5)
+                    end
+                end)
+            else
+                Util.notify("Auto triple damage disabled")
+            end
+        end,
+
+        -- Auto super lucky
+        autoSuperLucky = function()
+            if getgenv().settings.Misc.auto_super_lucky_toggle then
+                Util.notify("Auto super lucky enabled")
+                task.spawn(function()
+                    while getgenv().settings.Misc.auto_super_lucky_toggle do
+                        -- activate super lucky "potion" if not already active
+                        local Save = Lib.Save.Get()
+                        if Save["Boosts"]["Super Lucky"] == nil or Save["Boosts"]["Super Lucky"] < 60 then
+                            Util.notify("Activating super lucky")
+                            Fire("Activate Boost", "Super Lucky")
+                            task.wait(5)
+                        end
+                        task.wait(5)
+                    end
+                end)
+            else
+                Util.notify("Auto super lucky disabled")
+            end
+        end,
+
+        -- Auto ultra lucky
+        autoUltraLucky = function()
+            if getgenv().settings.Misc.auto_ultra_lucky_toggle then
+                Util.notify("Auto ultra lucky enabled")
+                task.spawn(function()
+                    while getgenv().settings.Misc.auto_ultra_lucky_toggle do
+                        -- activate ultra lucky "potion" if not already active
+                        local Save = Lib.Save.Get()
+                        if Save["Boosts"]["Ultra Lucky"] == nil or Save["Boosts"]["Ultra Lucky"] < 60 then
+                            Util.notify("Activating ultra lucky")
+                            Fire("Activate Boost", "Ultra Lucky")
+                            task.wait(5)
+                        end
+                        task.wait(5)
+                    end
+                end)
+            else
+                Util.notify("Auto ultra lucky disabled")
+            end
+        end,
     }
 
     -- Create GUI
@@ -128,7 +210,11 @@ function setSettingDefaults()
         },
         Misc = {
             auto_collect_gifts_toggle = false,
-            auto_redeem_rank_rewards_toggle = false
+            auto_redeem_rank_rewards_toggle = false,
+            auto_triple_coins_toggle = false,
+            auto_triple_damage_toggle = false,
+            auto_super_lucky_toggle = false,
+            auto_ultra_lucky_toggle = false,
         }
     }
 end

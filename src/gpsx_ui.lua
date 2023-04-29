@@ -130,6 +130,8 @@ function createGUI(group, actions)
         print("Creating Misc tab...")
         local miscTab = Window:CreateTab("Misc")
 
+        local autoClaimSection = miscTab:CreateSection("Auto claim:")
+
         -- Collect free gifts toggle
         local collectGiftsToggle = miscTab:CreateToggle({
             Name = "Collect free gifts",
@@ -159,6 +161,68 @@ function createGUI(group, actions)
                     Util.notify("Auto redeem Rank rewards disabled")
                 end
             end
+        })
+
+        local autoBoostSection = miscTab:CreateSection("Auto boost:")
+
+        -- Auto triple coins toggle
+        local autoTripleCoinsToggle = miscTab:CreateToggle({
+            Name = "Auto triple coins",
+            CurrentValue = getgenv().settings.Misc.auto_triple_coins_toggle,
+            Flag = "auto_triple_coins_toggle",
+            Callback = function(Value)
+                getgenv().settings.Misc.auto_triple_coins_toggle = Value
+                if Value then
+                    actions.autoTripleCoins()
+                else
+                    Util.notify("Auto triple coins disabled")
+                end
+            end,
+        })
+
+        -- Auto triple damage toggle
+        local autoTripleDamageToggle = miscTab:CreateToggle({
+            Name = "Auto triple damage",
+            CurrentValue = getgenv().settings.Misc.auto_triple_damage_toggle,
+            Flag = "auto_triple_damage_toggle",
+            Callback = function(Value)
+                getgenv().settings.Misc.auto_triple_damage_toggle = Value
+                if Value then
+                    actions.autoTripleDamage()
+                else
+                    Util.notify("Auto triple damage disabled")
+                end
+            end,
+        })
+
+        -- Auto super lucky toggle
+        local autoSuperLuckyToggle = miscTab:CreateToggle({
+            Name = "Auto super lucky",
+            CurrentValue = getgenv().settings.Misc.auto_super_lucky_toggle,
+            Flag = "auto_super_lucky_toggle",
+            Callback = function(Value)
+                getgenv().settings.Misc.auto_super_lucky_toggle = Value
+                if Value then
+                    actions.autoSuperLucky()
+                else
+                    Util.notify("Auto super lucky disabled")
+                end
+            end,
+        })
+
+        -- Auto ultra lucky toggle
+        local autoUltraLuckyToggle = miscTab:CreateToggle({
+            Name = "Auto ultra lucky",
+            CurrentValue = getgenv().settings.Misc.auto_ultra_lucky_toggle,
+            Flag = "auto_ultra_lucky_toggle",
+            Callback = function(Value)
+                getgenv().settings.Misc.auto_ultra_lucky_toggle = Value
+                if Value then
+                    actions.autoUltraLucky()
+                else
+                    Util.notify("Auto ultra lucky disabled")
+                end
+            end,
         })
     end
 
