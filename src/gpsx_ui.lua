@@ -12,7 +12,7 @@ function createGUI(group, actions)
     local function createMainWindow()
         print("Creating main window...")
         Window = Rayfield:CreateWindow({
-            Name = "GPSX",
+            Name = "GPSX | GaviNNN#3281",
             LoadingTitle = "GPSX Loading",
             LoadingSubtitle = "GaviNNN#3281",
             ConfigurationSaving = {
@@ -51,7 +51,31 @@ function createGUI(group, actions)
             Flag = "auto_farm_enabled_toggle",
             Callback = function(Value)
                 getgenv().settings.AutoFarm.auto_farm_enabled_toggle = Value
-                actions.startAutoFarm(Value)
+                actions.startAutoFarm()
+            end,
+         })
+
+        -- Auto collect orbs toggle
+        local autoCollectOrbsToggle = autoFarmTab:CreateToggle({
+            Name = "Auto Collect Orbs",
+            CurrentValue = getgenv().settings.AutoFarm.auto_collect_orbs_toggle,
+            Flag = "auto_collect_orbs_toggle",
+            Callback = function(Value)
+                getgenv().settings.AutoFarm.auto_collect_orbs_toggle = Value
+                actions.autoCollectOrbs()
+            end,
+        })
+
+        -- Farm type dropdown
+        local farmTypeDropdown = autoFarmTab:CreateDropdown({
+            Name = "Auto Farm Type",
+            Options = {"Normal", "Chest", "Multi Target"},
+            CurrentOption = getgenv().settings.AutoFarm.farm_type_choice,
+            MultipleOptions = false,
+            Flag = "farm_area_choice_dropdown_toggle",
+            Callback = function(Option)
+                getgenv().settings.AutoFarm.farm_type_choice = Option
+                actions.getFarmChoice(Option)
             end,
          })
 
@@ -68,17 +92,6 @@ function createGUI(group, actions)
                 actions.getFarmChoice(Option)
             end,
          })
-
-        -- Auto collect orbs toggle
-        local autoCollectOrbsToggle = autoFarmTab:CreateToggle({
-            Name = "Auto Collect Orbs",
-            CurrentValue = getgenv().settings.AutoFarm.auto_collect_orbs_toggle,
-            Flag = "auto_collect_orbs_toggle",
-            Callback = function(Value)
-                getgenv().settings.AutoFarm.auto_collect_orbs_toggle = Value
-                actions.autoCollectOrbs()
-            end,
-        })
     end
 
     -- Auto Hatch tab

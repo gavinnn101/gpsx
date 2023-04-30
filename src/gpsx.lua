@@ -38,12 +38,84 @@ function loadScript(arg)
     --     end
     -- end
 
+    local AreaMap = {
+        --Misc
+        ['VIP'] = {'VIP'};
+        --Spawn
+        ['Town'] = {'Town', 'Town FRONT'}; ['Forest'] = {'Forest', 'Forest FRONT'}; ['Beach'] = {'Beach', 'Beach FRONT'}; ['Mine'] = {'Mine', 'Mine FRONT'}; ['Winter'] = {'Winter', 'Winter FRONT'}; ['Glacier'] = {'Glacier', 'Glacier Lake'}; ['Desert'] = {'Desert', 'Desert FRONT'}; ['Volcano'] = {'Volcano', 'Volcano FRONT'};
+        -- Fantasy init
+        ['Enchanted Forest'] = {'Enchanted Forest', 'Enchanted Forest FRONT'}; ['Ancient'] = {'Ancient Island'}; ['Samurai'] = {'Samurai Island', 'Samurai Island FRONT'}; ['Candy'] = {'Candy Island'}; ['Haunted'] = {'Haunted Island', 'Haunted Island FRONT'}; ['Hell'] = {'Hell Island'}; ['Heaven'] = {'Heaven Island'};
+        -- Tech
+        ['Ice Tech'] = {'Ice Tech'}; ['Tech City'] = {'Tech City'; 'Tech City FRONT'}; ['Dark Tech'] = {'Dark Tech'; 'Dark Tech FRONT'}; ['Steampunk'] = {'Steampunk'; 'Steampunk FRONT'}, ['Alien Forest'] = {"Alien Forest"; "Alien Forest FRONT"}, ['Alien Lab'] = {"Alien Lab"; "Alien Lab FRONT"}, ['Glitch'] = {"Glitch"; "Glitch FRONT"}; ['Hacker Portal'] = {"Hacker Portal", "Hacker Portal FRONT"};
+        -- Axolotl
+        ['Axolotl Ocean'] = {'Axolotl Ocean', 'Axolotl Ocean FRONT'}; ['Axolotl Deep Ocean'] = {'Axolotl Deep Ocean', 'Axolotl Deep Ocean FRONT'}; ['Axolotl Cave'] = {'Axolotl Cave', 'Axolotl Cave FRONT'};
+        -- Minecraft
+        ['Pixel Forest'] = {'Pixel Forest', 'Pixel Forest FRONT'}; ['Pixel Kyoto'] = {'Pixel Kyoto', 'Pixel Kyoto FRONT'}; ['Pixel Alps'] = {'Pixel Alps', 'Pixel Alps FRONT'} ; ['Pixel Vault'] = {'Pixel Vault', 'Pixel Vault FRONT'};
+    }
+
+    --returns all coins within the given area (area must be a table of conent)
+    function getCoins(area)
+        local returntable = {}
+        local listCoins = Invoke("Get Coins")
+        for i,v in pairs(listCoins) do
+            if area == 'All' or table.find(AreaMap[area], v.a) then
+                local coin = v
+                coin["index"] = i
+                table.insert(returntable, coin)
+            end
+        end
+        return returntable
+    end
+
+    --Farms a coin. It seems to work. That's fun
+    function FarmCoin(CoinID, PetID)
+        local params = { [1] = CoinID, [2] = { [1] = PetID } }
+        print("Join coin")
+        -- Error invoking 'Join Coin' (Blunder:2cc...)
+        -- Not sure how to fix this yet. Seems like some kind of anti-cheat thing maybe? IDK what blunder is.
+        Invoke("Join Coin", params)
+        print("Farm coin")
+        Fire("Farm Coin", params)
+        -- game:GetService("Workspace")["__THINGS"]['__REMOTES']["join coin"]:InvokeServer({[1] = CoinID, [2] = {[1] = PetID}})
+        -- game:GetService("Workspace")["__THINGS"]["farm coin"]:FireServer({[1] = CoinID, [2] = PetID})
+    end
+
     -- Game automation functions linked to Rayfield GUI components in gpsx_ui.lua
     local actions = {
         -- auto farm
-        startAutoFarm = function(status)
-            if status then
+        startAutoFarm = function()
+            if getgenv().settings.AutoFarm.auto_farm_enabled_toggle then
                 Util.notify("Auto farm enabled")
+                task.spawn(function()
+                    while getgenv().settings.AutoFarm.auto_farm_enabled_toggle do
+                        local myPets = Util.getMyPets()
+                        if getgenv().settings.AutoFarm.farm_type_choice == "Normal" then
+                            -- Normal farm
+                            local coins = getCoins("Town")
+                            for i = 1, #coins do
+                                if getgenv().settings.AutoFarm.auto_farm_enabled_toggle and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                    print("Found child coin, idx: " ..coins[i].index)
+                                    for _, bb in pairs(myPets) do
+                                        print("pet loop, idx: " .. tostring(_))
+                                        if getgenv().settings.AutoFarm.auto_farm_enabled_toggle and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                            task.wait(2)
+                                            print("calling FarmCoin")
+                                            task.spawn(function()
+                                                FarmCoin(coins[i].index, bb)
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+                        elseif getgenv().settings.AutoFarm.farm_type_choice == "Chest" then
+                            -- Chest farm
+                            print("chest farm enabled.")
+                        elseif getgenv().settings.AutoFarm.farm_type_choice == "Multi Target" then
+                            -- Multi target farm
+                            print("multi target farm enabled.")
+                        end
+                    end
+                end)
             else
                 Util.notify("Auto farm disabled")
             end
@@ -243,7 +315,8 @@ function loadScript(arg)
                 Util.notify("Auto orbs enabled")
                 task.spawn(function()
                     while getgenv().settings.AutoFarm.auto_collect_orbs_toggle do
-                        for i,v in pairs(game:GetService("Workspace")["__THINGS"].Orbs:GetChildren()) do
+                        local orbs = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Orbs")
+                        for i,v in pairs(orbs:GetChildren()) do
                             v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
                         end
                         task.wait(2)
@@ -281,6 +354,7 @@ function setSettingDefaults()
             auto_farm_enabled_toggle = false,
             auto_collect_orbs_toggle = false,
             farm_area_choice = "Town",
+            farm_type_choice = "Normal",
         },
         AutoHatch = {
             auto_hatch_enabled_toggle = false,
