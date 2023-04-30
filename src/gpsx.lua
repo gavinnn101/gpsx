@@ -29,6 +29,15 @@ function loadScript(arg)
 
     Util.notify("Script loaded with settings: " .. group)
 
+    -- Variables
+    local allAreas = Util.getAreas()
+    -- -- loop over allAreas and print them
+    -- for i, v in pairs(allAreas) do
+    --     for k, attr in pairs(v) do
+    --         print(k .. ": " .. tostring(attr))
+    --     end
+    -- end
+
     -- Game automation functions linked to Rayfield GUI components in gpsx_ui.lua
     local actions = {
         -- auto farm
@@ -244,6 +253,21 @@ function loadScript(arg)
                 Util.notify("Auto orbs disabled")
             end
         end,
+
+        -- Anti afk
+        antiAfk = function()
+            if getgenv().settings.Misc.anti_afk_toggle then
+                Util.notify("Anti afk enabled")
+                for i,v in pairs(getconnections(game:GetService('Players').LocalPlayer.Idled)) do
+                    v:Disable()
+                end
+            else
+                for i,v in pairs(getconnections(game:GetService('Players').LocalPlayer.Idled)) do
+                    v:Enable()
+                end
+                Util.notify("Anti afk disabled")
+            end
+        end,
     }
 
     -- Create GUI
@@ -256,6 +280,7 @@ function setSettingDefaults()
         AutoFarm = {
             auto_farm_enabled_toggle = false,
             auto_collect_orbs_toggle = false,
+            farm_area_choice = "Town",
         },
         AutoHatch = {
             auto_hatch_enabled_toggle = false,
@@ -271,6 +296,7 @@ function setSettingDefaults()
             auto_triple_damage_toggle = false,
             auto_super_lucky_toggle = false,
             auto_ultra_lucky_toggle = false,
+            anti_afk_toggle = false,
         }
     }
 end

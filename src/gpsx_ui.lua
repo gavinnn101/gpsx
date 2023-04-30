@@ -55,6 +55,20 @@ function createGUI(group, actions)
             end,
          })
 
+        -- Auto farm area dropdown
+        local areaList = Util.getAreas()
+        local farmAreaChoiceDropdown = autoFarmTab:CreateDropdown({
+            Name = "Auto Farm Area",
+            Options = areaList,
+            CurrentOption = getgenv().settings.AutoFarm.farm_area_choice,
+            MultipleOptions = false,
+            Flag = "farm_area_choice_dropdown_toggle",
+            Callback = function(Option)
+                getgenv().settings.AutoFarm.farm_area_choice = Option
+                actions.getFarmChoice(Option)
+            end,
+         })
+
         -- Auto collect orbs toggle
         local autoCollectOrbsToggle = autoFarmTab:CreateToggle({
             Name = "Auto Collect Orbs",
@@ -252,6 +266,20 @@ function createGUI(group, actions)
                 else
                     Util.notify("Auto ultra lucky disabled")
                 end
+            end,
+        })
+
+        -- Other settings section
+        local otherSettingsSection = miscTab:CreateSection("Other settings:")
+
+        -- Anti afk toggle
+        local antiAfkToggle = miscTab:CreateToggle({
+            Name = "Anti AFK",
+            CurrentValue = getgenv().settings.Misc.anti_afk_toggle,
+            Flag = "anti_afk_toggle",
+            Callback = function(Value)
+                getgenv().settings.Misc.anti_afk_toggle = Value
+                actions.antiAfk()
             end,
         })
     end

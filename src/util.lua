@@ -159,5 +159,21 @@ function Util.getSortedEggList(eggsData)
     return sortedDisplayNamesWithWorld
 end
 
+-- Get all areas
+function Util.getAreas()
+    local tmpAreas = {}
+    local worlds = game:GetService("ReplicatedStorage")["__DIRECTORY"].Areas:GetChildren()
+    -- Loop over worlds folders (Fantasty, Easter, etc.)
+    for i, v in ipairs(worlds) do
+        -- Loop over areas in the current world folder
+        for ie, ve in pairs(require(v)) do
+            table.insert(tmpAreas, ie .. " | " .. v.Name)
+        end
+    end
+    table.sort(tmpAreas, function(a, b)
+        return a < b
+    end)
+    return tmpAreas
+end
 
 return Util
