@@ -22,10 +22,13 @@ function loadScript(arg)
     local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
     local Fire, Invoke = Network.Fire, Network.Invoke
     -- Hooking the _check function in the module to bypass the anticheat.
-    local old
-    old = hookfunction(getupvalue(Fire, 1), function(...)
-       return true
-    end)
+    -- local old
+    -- old = hookfunction(getupvalue(Fire, 1), function(...)
+    --    return true
+    -- end)
+    -- local Client = require(game.ReplicatedStorage.Library.Client)
+    debug.setupvalue(Invoke, 1, function() return true end)
+    debug.setupvalue(Fire, 1, function() return true end)
 
     Util.notify("Script loaded with settings: " .. group)
 
@@ -67,17 +70,10 @@ function loadScript(arg)
         return returntable
     end
 
-    --Farms a coin. It seems to work. That's fun
     function FarmCoin(CoinID, PetID)
-        local params = { [1] = CoinID, [2] = { [1] = PetID } }
-        print("Join coin")
-        -- Error invoking 'Join Coin' (Blunder:2cc...)
-        -- Not sure how to fix this yet. Seems like some kind of anti-cheat thing maybe? IDK what blunder is.
-        Invoke("Join Coin", params)
-        print("Farm coin")
-        Fire("Farm Coin", params)
-        -- game:GetService("Workspace")["__THINGS"]['__REMOTES']["join coin"]:InvokeServer({[1] = CoinID, [2] = {[1] = PetID}})
-        -- game:GetService("Workspace")["__THINGS"]["farm coin"]:FireServer({[1] = CoinID, [2] = PetID})
+        print("farming coin (FarmCoin)")
+        Invoke("Join Coin", CoinID, {PetID})
+        Fire("Farm Coin", CoinID, PetID)
     end
 
     -- Game automation functions linked to Rayfield GUI components in gpsx_ui.lua
