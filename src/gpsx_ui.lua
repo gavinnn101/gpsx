@@ -1,6 +1,6 @@
 ---@diagnostic disable: undefined-global
 
-function createGUI(group, actions)
+function createGUI(group, actions, areas)
     print("Creating GUI...")
     getgenv().SecureMode = true
     local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -80,16 +80,14 @@ function createGUI(group, actions)
          })
 
         -- Auto farm area dropdown
-        local areaList = Util.getAreas()
         local farmAreaChoiceDropdown = autoFarmTab:CreateDropdown({
             Name = "Auto Farm Area",
-            Options = areaList,
+            Options = areas,
             CurrentOption = getgenv().settings.AutoFarm.farm_area_choice,
             MultipleOptions = false,
             Flag = "farm_area_choice_dropdown_toggle",
             Callback = function(Option)
                 getgenv().settings.AutoFarm.farm_area_choice = Option
-                actions.getFarmChoice(Option)
             end,
          })
     end

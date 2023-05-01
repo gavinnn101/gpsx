@@ -176,6 +176,14 @@ function Util.getAreas()
     return tmpAreas
 end
 
+function Util.getAreaBeforePipe(areaString)
+    local splitString = {}
+    for word in string.gmatch(areaString, "([^|]+)") do
+        table.insert(splitString, word)
+    end
+    return splitString[1]:gsub("^%s*(.-)%s*$", "%1") -- Remove leading and trailing spaces
+end
+
 
 function Util.getMyPets()
     local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
@@ -185,9 +193,9 @@ function Util.getMyPets()
     local petList = {}
     local save = Lib.Save.Get()
     for i,v in pairs(save.Pets) do
-        -- print("Checking pet: " ..v.uid)
+        print("Checking pet: " ..v.uid)
         local isEquipped = Lib.Shared.HasPetEquipped(save, v)
-        -- print("isEquipped: " .. tostring(isEquipped))
+        print("isEquipped: " .. tostring(isEquipped))
         if isEquipped then
             print("Inserting equipped pet into table, UID: " ..v.uid)
             table.insert(petList, v.uid)

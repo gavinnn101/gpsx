@@ -11,10 +11,7 @@ function loadScript(arg)
     -- Main script functionality
     local group = arg
     getgenv().settings = Util.loadSettings(group)
-    local HttpService = game:GetService('HttpService')
 
-    -- Bypass environment check to allow use of invoke and fire
-    -- https://v3rmillion.net/showthread.php?tid=1198487
     local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
     local Fire, Invoke = Network.Fire, Network.Invoke
 
@@ -25,35 +22,26 @@ function loadScript(arg)
     Util.notify("Script loaded with settings: " .. group)
 
     -- Variables
+    local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
     local allAreas = Util.getAreas()
-    -- -- loop over allAreas and print them
-    -- for i, v in pairs(allAreas) do
-    --     for k, attr in pairs(v) do
-    --         print(k .. ": " .. tostring(attr))
-    --     end
-    -- end
 
-    local AreaMap = {
-        --Misc
-        ['VIP'] = {'VIP'};
-        --Spawn
-        ['Town'] = {'Town', 'Town FRONT'}; ['Forest'] = {'Forest', 'Forest FRONT'}; ['Beach'] = {'Beach', 'Beach FRONT'}; ['Mine'] = {'Mine', 'Mine FRONT'}; ['Winter'] = {'Winter', 'Winter FRONT'}; ['Glacier'] = {'Glacier', 'Glacier Lake'}; ['Desert'] = {'Desert', 'Desert FRONT'}; ['Volcano'] = {'Volcano', 'Volcano FRONT'};
-        -- Fantasy init
-        ['Enchanted Forest'] = {'Enchanted Forest', 'Enchanted Forest FRONT'}; ['Ancient'] = {'Ancient Island'}; ['Samurai'] = {'Samurai Island', 'Samurai Island FRONT'}; ['Candy'] = {'Candy Island'}; ['Haunted'] = {'Haunted Island', 'Haunted Island FRONT'}; ['Hell'] = {'Hell Island'}; ['Heaven'] = {'Heaven Island'};
-        -- Tech
-        ['Ice Tech'] = {'Ice Tech'}; ['Tech City'] = {'Tech City'; 'Tech City FRONT'}; ['Dark Tech'] = {'Dark Tech'; 'Dark Tech FRONT'}; ['Steampunk'] = {'Steampunk'; 'Steampunk FRONT'}, ['Alien Forest'] = {"Alien Forest"; "Alien Forest FRONT"}, ['Alien Lab'] = {"Alien Lab"; "Alien Lab FRONT"}, ['Glitch'] = {"Glitch"; "Glitch FRONT"}; ['Hacker Portal'] = {"Hacker Portal", "Hacker Portal FRONT"};
-        -- Axolotl
-        ['Axolotl Ocean'] = {'Axolotl Ocean', 'Axolotl Ocean FRONT'}; ['Axolotl Deep Ocean'] = {'Axolotl Deep Ocean', 'Axolotl Deep Ocean FRONT'}; ['Axolotl Cave'] = {'Axolotl Cave', 'Axolotl Cave FRONT'};
-        -- Minecraft
-        ['Pixel Forest'] = {'Pixel Forest', 'Pixel Forest FRONT'}; ['Pixel Kyoto'] = {'Pixel Kyoto', 'Pixel Kyoto FRONT'}; ['Pixel Alps'] = {'Pixel Alps', 'Pixel Alps FRONT'} ; ['Pixel Vault'] = {'Pixel Vault', 'Pixel Vault FRONT'};
-    }
+    function getAreaNames()
+        local areaNames = {}
+        for _, areaWorldName in pairs(allAreas) do
+            local areaName = Util.getAreaBeforePipe(areaWorldName)
+            table.insert(areaNames, areaName)
+        end
+        return areaNames
+    end
 
     --returns all coins within the given area (area must be a table of conent)
     function getCoins(area)
         local returntable = {}
         local listCoins = Invoke("Get Coins")
+        -- print("getting coins in area: " .. area .. "")
         for i,v in pairs(listCoins) do
-            if area == 'All' or table.find(AreaMap[area], v.a) then
+            if area == v.a then
+                -- print("Found coin in area: " .. area .. " with index: " .. i .. "")
                 local coin = v
                 coin["index"] = i
                 table.insert(returntable, coin)
@@ -76,23 +64,27 @@ function loadScript(arg)
                 Util.notify("Auto farm enabled")
                 task.spawn(function()
                     while getgenv().settings.AutoFarm.auto_farm_enabled_toggle do
+                        print("Getting equipped pets")
                         local myPets = Util.getMyPets()
                         if getgenv().settings.AutoFarm.farm_type_choice == "Normal" then
                             -- Normal farm
-                            local coins = getCoins("Town")
+                            print("looking for coins in: " .. tostring(getgenv().settings.AutoFarm.farm_area_choice[1]))
+                            local coins = getCoins(getgenv().settings.AutoFarm.farm_area_choice[1])
                             for i = 1, #coins do
                                 if getgenv().settings.AutoFarm.auto_farm_enabled_toggle and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
                                     print("Found child coin, idx: " ..coins[i].index)
                                     for _, bb in pairs(myPets) do
                                         print("pet loop, idx: " .. tostring(_))
                                         if getgenv().settings.AutoFarm.auto_farm_enabled_toggle and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
-                                            task.wait(2)
+                                            task.wait(0.1)
                                             task.spawn(function()
                                                 FarmCoin(coins[i].index, bb)
                                             end)
                                         end
+                                    task.wait(0.1)
                                     end
                                 end
+                            task.wait(0.1)
                             end
                         elseif getgenv().settings.AutoFarm.farm_type_choice == "Chest" then
                             -- Chest farm
@@ -330,9 +322,11 @@ function loadScript(arg)
         end,
     }
 
+    local areas = getAreaNames()
+
     -- Create GUI
     local createGUI = loadstring(readfile("gpsx/gpsx_ui.lua"))()
-    local gui = createGUI(group, actions)
+    local gui = createGUI(group, actions, areas)
 end
 
 function setSettingDefaults()
