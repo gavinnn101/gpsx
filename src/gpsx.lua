@@ -5,10 +5,6 @@ function loadScript(arg)
     if not game:IsLoaded() then
         game.Loaded:Wait()
     end
-    local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
-    while not Lib.Loaded do
-        game:GetService("RunService").Heartbeat:Wait()
-    end
 
     Util.bypassAC()
 
@@ -21,12 +17,8 @@ function loadScript(arg)
     -- https://v3rmillion.net/showthread.php?tid=1198487
     local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
     local Fire, Invoke = Network.Fire, Network.Invoke
-    -- Hooking the _check function in the module to bypass the anticheat.
-    -- local old
-    -- old = hookfunction(getupvalue(Fire, 1), function(...)
-    --    return true
-    -- end)
-    -- local Client = require(game.ReplicatedStorage.Library.Client)
+
+    -- Hooking the _check function to bypass the anticheat (Blunder) environment check.
     debug.setupvalue(Invoke, 1, function() return true end)
     debug.setupvalue(Fire, 1, function() return true end)
 
@@ -95,7 +87,6 @@ function loadScript(arg)
                                         print("pet loop, idx: " .. tostring(_))
                                         if getgenv().settings.AutoFarm.auto_farm_enabled_toggle and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
                                             task.wait(2)
-                                            print("calling FarmCoin")
                                             task.spawn(function()
                                                 FarmCoin(coins[i].index, bb)
                                             end)
