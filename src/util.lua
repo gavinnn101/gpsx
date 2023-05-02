@@ -11,6 +11,7 @@ while not Lib.Loaded do
 end
 
 local Client = require(game.ReplicatedStorage.Library.Client)
+local RunService = game:GetService("RunService")
 
 -- Hooking the _check function to bypass the anticheat (Blunder) environment check.
 debug.setupvalue(Invoke, 1, function() return true end)
@@ -491,6 +492,28 @@ function Util.AutoCollectLootbags()
         end)
     else
         Util.notify("Auto lootbags disabled")
+    end
+end
+
+-- Set low fps
+function Util.SetFps(fpsValue)
+    if getgenv().Toggles.LowFPSToggle.Value then
+        Util.notify("Low fps enabled")
+        setfpscap(fpsValue)
+    else
+        Util.notify("Low fps disabled")
+        setfpscap(240)
+    end
+end
+
+-- Disable Graphics Rendering
+function Util.SetGraphicsRendering()
+    if getgenv().Toggles.DisableGraphicsRenderingToggle.Value then
+        Util.notify("Graphics rendering disabled")
+        RunService:Set3dRenderingEnabled(false)
+    else
+        Util.notify("Graphics rendering enabled")
+        RunService:Set3dRenderingEnabled(true)
     end
 end
 

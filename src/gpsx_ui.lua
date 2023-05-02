@@ -185,6 +185,23 @@ function createGUI(group, areas)
         Tooltip = "Turn on to auto ultra lucky.",
     })
 
+    -- Resource Savers box left
+    local ResourceSaversGroupBoxLeft = Tabs["Misc"]:AddLeftGroupbox("Resource Savers")
+
+    -- Low FPS toggle
+    ResourceSaversGroupBoxLeft:AddToggle("LowFPSToggle", {
+        Text = "Enable Low FPS",
+        Default = false,
+        Tooltip = "Turn on to lower FPS to reduce lag.",
+    })
+
+    -- Disable Graphics Rendering toggle
+    ResourceSaversGroupBoxLeft:AddToggle("DisableGraphicsRenderingToggle", {
+        Text = "Disable Graphics Rendering",
+        Default = false,
+        Tooltip = "Turn on to disable graphics rendering.",
+    })
+
     -- Function to run onUnload
     Library:OnUnload(function()
         print("GPSX Unloaded!")
@@ -204,7 +221,7 @@ function createGUI(group, areas)
     ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
     -- Load config based on account group
-    local group = "autofarm" -- for testing
+    -- local group = "autofarm" -- for testing
     SaveManager:Load(group)
     Library:Notify("Loaded config: " .. group)
 end

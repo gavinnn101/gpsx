@@ -129,6 +129,18 @@ function loadScript(arg)
         Util.SkipEggAnimation()
     end)
 
+    -- LowFPSToggle
+    getgenv().Toggles.LowFPSToggle:OnChanged(function()
+        print("Low FPS: ", getgenv().Toggles.LowFPSToggle.Value)
+        Util.SetFps(10)
+    end)
+
+    -- DisableGraphicsRenderingToggle
+    getgenv().Toggles.DisableGraphicsRenderingToggle:OnChanged(function()
+        print("Disable Graphics Rendering: ", getgenv().Toggles.DisableGraphicsRenderingToggle.Value)
+        Util.SetGraphicsRendering()
+    end)
+
 end
 
 function main()
