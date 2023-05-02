@@ -71,7 +71,7 @@ function Util.bypassAC()
     end
 end
 
-function Util.getEggData()
+function Util.GetEggData()
     -- eggsData - egg attributes
     -- isGolden: bool
     -- eggRequiredOpenAmount: int
@@ -107,13 +107,20 @@ function Util.getEggData()
     return eggsData
 end
 
-function Util.getSortedEggList(eggsData)
+function Util.GetEggName(fullString)
+    local eggName = string.match(fullString, "^(.-)%s*%-")
+    return eggName or fullString
+end
+
+
+function Util.GetSortedEggList(eggsData)
     -- Generate a table containing eggs displayName
     local eggOptions = {}
     for key, eggData in pairs(eggsData or {}) do
         local displayName = eggData.displayName
         local world = key.world
-        table.insert(eggOptions, {displayName = displayName, world = world})
+        local eggName = Util.GetEggName(displayName)
+        table.insert(eggOptions, {displayName = eggName, world = world})
     end
 
     -- Sort the eggOptions by world and then by displayName
@@ -125,16 +132,16 @@ function Util.getSortedEggList(eggsData)
         end
     end)
 
-    -- Extract the displayName and world from the sorted eggOptions and concatenate them
-    local sortedDisplayNamesWithWorld = {}
+    -- Extract the displayName from the sorted eggOptions
+    local sortedDisplayNames = {}
     for _, option in ipairs(eggOptions) do
-        table.insert(sortedDisplayNamesWithWorld, option.displayName .. " - " .. option.world)
+        table.insert(sortedDisplayNames, option.displayName)
     end
-    return sortedDisplayNamesWithWorld
+    return sortedDisplayNames
 end
 
 -- Get all areas
-function Util.getAreas()
+function Util.GetAreas()
     local tmpAreas = {}
     local worlds = game:GetService("ReplicatedStorage")["__DIRECTORY"].Areas:GetChildren()
     -- Loop over worlds folders (Fantasty, Easter, etc.)
@@ -154,13 +161,13 @@ end
 function Util.GetAreaNames(areaMap)
     local areaNames = {}
     for _, areaWorldName in pairs(areaMap) do
-        local areaName = Util.getAreaBeforePipe(areaWorldName)
+        local areaName = Util.GetAreaBeforePipe(areaWorldName)
         table.insert(areaNames, areaName)
     end
     return areaNames
 end
 
-function Util.getAreaBeforePipe(areaString)
+function Util.GetAreaBeforePipe(areaString)
     local splitString = {}
     for word in string.gmatch(areaString, "([^|]+)") do
         table.insert(splitString, word)
@@ -169,11 +176,7 @@ function Util.getAreaBeforePipe(areaString)
 end
 
 
-function Util.getMyPets()
-    local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
-    while not Lib.Loaded do
-        game:GetService("RunService").Heartbeat:Wait()
-    end
+function Util.GetMyPets()
     local petList = {}
     local save = Lib.Save.Get()
     for i,v in pairs(save.Pets) do
@@ -216,7 +219,7 @@ function Util.getMyPets()
             task.spawn(function()
                 while getgenv().Toggles.AutoFarmEnabledToggle.Value do
                     print("Getting equipped pets")
-                    local myPets = Util.getMyPets()
+                    local myPets = Util.GetMyPets()
                     if getgenv().Options.FarmTypeDropdown.Value == "Normal" then
                         -- Normal farm
                         print("looking for coins in: " .. getgenv().Options.FarmAreaDropdown.Value)
@@ -262,6 +265,14 @@ function Util.getMyPets()
                     task.wait(1.2)
                 end
             end)
+        end
+    end
+
+    function Util.SkipEggAnimation()
+        if getgenv().Toggles.SkipEggAnimationToggle.Value then
+            game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.Game["Open Eggs"].Disabled = true
+        else
+            game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.Game["Open Eggs"].Disabled = false
         end
     end
 

@@ -12,8 +12,7 @@ function loadScript(arg)
     local group = arg
 
     -- Variables
-    local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
-    local allAreas = Util.getAreas()
+    local allAreas = Util.GetAreas()
     local areas = Util.GetAreaNames(allAreas)
 
     -- Create GUI
@@ -122,6 +121,12 @@ function loadScript(arg)
     getgenv().Toggles.AutoUltraLuckyToggle:OnChanged(function()
         print("Auto Ultra Lucky: ", getgenv().Toggles.AutoUltraLuckyToggle.Value)
         Util.AutoUltraLucky()
+    end)
+
+    -- SkipEggAnimationToggle
+    getgenv().Toggles.SkipEggAnimationToggle:OnChanged(function()
+        print("Skip Egg Animation: ", getgenv().Toggles.SkipEggAnimationToggle.Value)
+        Util.SkipEggAnimation()
     end)
 
 end

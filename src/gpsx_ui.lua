@@ -89,6 +89,13 @@ function createGUI(group, areas)
         Tooltip = "Turn on to start auto hatch.",
     })
 
+    -- SkipEggAnimationToggle
+    AutoHatchGroupBox:AddToggle("SkipEggAnimationToggle", {
+        Text = "Skip Egg Animation",
+        Default = false,
+        Tooltip = "Turn on to skip egg hatch animation.",
+    })
+
     -- Enable triple hatch toggle
     AutoHatchGroupBox:AddToggle("EnableTripleHatchToggle", {
         Text = "Enable Triple Hatch",
@@ -104,8 +111,8 @@ function createGUI(group, areas)
     })
 
     -- Auto hatch egg choice dropdown
-    local eggData = Util.getEggData()
-    local sortedEggsList = Util.getSortedEggList(eggData)
+    local eggData = Util.GetEggData()
+    local sortedEggsList = Util.GetSortedEggList(eggData)
     AutoHatchGroupBox:AddDropdown("AutoHatchEggChoiceDropdown", {
         Values = sortedEggsList,
         Default = "Cracked Egg", -- number index of the value / string
@@ -197,7 +204,7 @@ function createGUI(group, areas)
     ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
     -- Load config based on account group
-    local group = "autofarm" -- for testing
+    -- local group = "autofarm" -- for testing
     SaveManager:Load(group)
     Library:Notify("Loaded config: " .. group)
 end
