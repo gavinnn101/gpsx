@@ -204,7 +204,7 @@ function createGUI(group, areas)
     ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
     -- Load config based on account group
-    -- local group = "autofarm" -- for testing
+    local group = "autofarm" -- for testing
     SaveManager:Load(group)
     Library:Notify("Loaded config: " .. group)
 end
