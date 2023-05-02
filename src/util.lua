@@ -208,6 +208,7 @@ end
 function Util.AutoFarm()
     if getgenv().Toggles.AutoFarmEnabledToggle.Value then
         Util.notify("Auto farm enabled")
+        local CurrentFarmingPets = {}
         task.spawn(function()
             while getgenv().Toggles.AutoFarmEnabledToggle.Value do
                 print("Getting equipped pets")
@@ -233,7 +234,22 @@ function Util.AutoFarm()
                     print("chest farm enabled.")
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Multi Target" then
                     -- Multi target farm
-                    print("multi target farm enabled.")
+                    print("looking for coins in: " .. getgenv().Options.FarmAreaDropdown.Value)
+                    local coins = Util.GetCoins(getgenv().Options.FarmAreaDropdown.Value)
+                    for i = 1, #coins do
+                        if i%#myPets == #myPets-1 then
+                            task.wait()
+                        end
+                        if not CurrentFarmingPets[myPets[i%#myPets+1]] or CurrentFarmingPets[myPets[i%#myPets+1]] == nil then
+                            task.wait(0.1)
+                            task.spawn(function()
+                                CurrentFarmingPets[myPets[i%#myPets+1]] = 'Farming'
+                                Util.FarmCoin(coins[i].index, myPets[i%#myPets+1].uid)
+                                repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) or #game:GetService("Workspace")["__THINGS"].Pets:GetChildren() == 0
+                                CurrentFarmingPets[myPets[i%#myPets+1]] = nil
+                            end)
+                        end
+                    end
                 end
             end
         end)
