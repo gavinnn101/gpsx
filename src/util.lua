@@ -200,8 +200,8 @@ end
 
 function Util.FarmCoin(CoinID, PetID)
     print("farming coin (FarmCoin)")
-    Invoke("Join Coin", CoinID, {PetID.uid})
-    Fire("Farm Coin", CoinID, PetID.uid)
+    Invoke("Join Coin", CoinID, {PetID})
+    Fire("Farm Coin", CoinID, PetID)
 end
 
 function Util.AutoFarm()
@@ -218,14 +218,16 @@ function Util.AutoFarm()
                     for i = 1, #coins do
                         if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
                             print("Found child coin, idx: " ..coins[i].index)
-                            for _, bb in pairs(myPets) do
+                            for _, pet in pairs(myPets) do
                                 print("pet loop, idx: " .. tostring(_))
-                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
-                                    task.wait(0.1)
-                                    task.spawn(function()
-                                        Util.FarmCoin(coins[i].index, bb)
-                                    end)
-                                end
+                                task.spawn(function()
+                                    if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                        task.wait(0.1)
+                                        task.spawn(function()
+                                            Util.FarmCoin(coins[i].index, pet.uid)
+                                        end)
+                                    end
+                                end)
                             task.wait(0.1)
                             end
                         end
@@ -253,7 +255,7 @@ function Util.AutoHatch()
             while getgenv().Toggles.AutoHatchEnabledToggle.Value do
                 Util.notify("Hatching egg: " .. getgenv().Options.AutoHatchEggChoiceDropdown.Value)
                 Invoke("Buy Egg", getgenv().Options.AutoHatchEggChoiceDropdown.Value, getgenv().Toggles.EnableTripleHatchToggle.Value, getgenv().Toggles.EnableOctupleHatchToggle.Value)
-                task.wait(1.2)
+                task.wait(1.5)
             end
         end)
     end
@@ -439,7 +441,7 @@ function Util.AutoCollectOrbs()
                 for i,v in pairs(orbs:GetChildren()) do
                     v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
                 end
-                task.wait(1.1)
+                task.wait(1)
             end
         end)
     else
@@ -488,8 +490,9 @@ function Util.AutoCollectLootbags()
                 local lootbags = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Lootbags")
                 for i,v in pairs(lootbags:GetChildren()) do
                     v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+                    task.wait(0.1)
                 end
-                task.wait(2)
+                task.wait(1)
             end
         end)
     else
