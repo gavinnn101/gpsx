@@ -221,17 +221,11 @@ function Util.AutoFarm()
                             for _, pet in pairs(myPets) do
                                 print("pet loop, idx: " .. tostring(_))
                                 task.spawn(function()
-                                    if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
-                                        task.wait(0.1)
-                                        task.spawn(function()
-                                            Util.FarmCoin(coins[i].index, pet.uid)
-                                        end)
-                                    end
+                                    Util.FarmCoin(coins[i].index, pet.uid)
                                 end)
-                            task.wait(0.1)
                             end
                         end
-                    task.wait(0.1)
+                        repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Chest" then
                     -- Chest farm
