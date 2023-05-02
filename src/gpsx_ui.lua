@@ -19,8 +19,6 @@ function createGUI(group, areas)
     ThemeManager:SetFolder('gpsx')
     SaveManager:SetFolder('gpsx')
 
-    SaveManager:Load(group)
-
     local Window = Library:CreateWindow({
         Title = 'GPSX | GaviNNN#3281',
         Center = true,
@@ -55,6 +53,13 @@ function createGUI(group, areas)
         Text = "Auto Collect Orbs",
         Default = false,
         Tooltip = "Turn on to auto collect orbs(loot.)",
+    })
+
+    -- Auto collect lootbags toggle
+    AutoFarmGroupBox:AddToggle("AutoCollectLootbagsToggle", {
+        Text = "Auto Collect Loot Bags",
+        Default = false,
+        Tooltip = "Turn on to auto collect loot bags.",
     })
 
     -- Auto farm type dropdown
@@ -113,11 +118,64 @@ function createGUI(group, areas)
     -- Misc Tab
     -- Misc group box
     local MiscGroupBox = Tabs["Misc"]:AddLeftGroupbox("Misc")
+
+    -- Unlock gamepasses toggle
+    MiscGroupBox:AddToggle("UnlockGamepassesToggle", {
+        Text = "Unlock Gamepasses",
+        Default = false,
+        Tooltip = "Turn on to unlock all gamepasses.",
+    })
+
     -- Auto Collect Free Gifts Toggle
     MiscGroupBox:AddToggle("AutoCollectFreeGiftsToggle", {
         Text = "Auto Collect Free Gifts",
         Default = false,
         Tooltip = "Turn on to auto collect free gifts.",
+    })
+
+    -- Auto collect rank rewards toggle
+    MiscGroupBox:AddToggle("AutoCollectRankRewardsToggle", {
+        Text = "Auto Collect Rank Rewards",
+        Default = false,
+        Tooltip = "Turn on to auto collect rank rewards.",
+    })
+
+    -- Anti AFK toggle
+    MiscGroupBox:AddToggle("AntiAfkToggle", {
+        Text = "Anti AFK",
+        Default = false,
+        Tooltip = "Turn on to enable anti afk.",
+    })
+
+    -- Misc group box right
+    local MiscGroupBoxRight = Tabs["Misc"]:AddRightGroupbox("Auto Boosts")
+
+    -- Auto Triple Coins toggle
+    MiscGroupBoxRight:AddToggle("AutoTripleCoinsToggle", {
+        Text = "Auto Triple Coins",
+        Default = false,
+        Tooltip = "Turn on to auto triple coins.",
+    })
+
+    -- Auto Triple Damage toggle
+    MiscGroupBoxRight:AddToggle("AutoTripleDamageToggle", {
+        Text = "Auto Triple Damage",
+        Default = false,
+        Tooltip = "Turn on to auto triple damage.",
+    })
+
+    -- Auto Super Lucky toggle
+    MiscGroupBoxRight:AddToggle("AutoSuperLuckyToggle", {
+        Text = "Auto Super Lucky",
+        Default = false,
+        Tooltip = "Turn on to auto super lucky.",
+    })
+
+    -- Auto Ultra Lucky toggle
+    MiscGroupBoxRight:AddToggle("AutoUltraLuckyToggle", {
+        Text = "Auto Ultra Lucky",
+        Default = false,
+        Tooltip = "Turn on to auto ultra lucky.",
     })
 
     -- Function to run onUnload

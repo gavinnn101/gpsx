@@ -34,6 +34,12 @@ function loadScript(arg)
         Util.AutoCollectOrbs()
     end)
 
+    -- AutoCollectLootbagsToggle
+    getgenv().Toggles.AutoCollectLootbagsToggle:OnChanged(function()
+        print("Auto Collect Lootbags: ", getgenv().Toggles.AutoCollectLootbagsToggle.Value)
+        Util.AutoCollectLootbags()
+    end)
+
     -- FarmTypeDropdown
     getgenv().Options.FarmTypeDropdown:OnChanged(function()
         -- This is a boolean consumed by AutoFarm.
@@ -70,10 +76,52 @@ function loadScript(arg)
         print("Using auto hatch egg choice: ", getgenv().Options.AutoHatchEggChoiceDropdown.Value)
     end)
 
+    -- UnlockGamepassesToggle
+    getgenv().Toggles.UnlockGamepassesToggle:OnChanged(function()
+        print("Unlock Gamepasses: ", getgenv().Toggles.UnlockGamepassesToggle.Value)
+        Util.UnlockGamepasses()
+    end)
+
     -- AutoCollectFreeGiftsToggle
     getgenv().Toggles.AutoCollectFreeGiftsToggle:OnChanged(function()
         print("Auto Collect Free Gifts: ", getgenv().Toggles.AutoCollectFreeGiftsToggle.Value)
         Util.CollectFreeGifts()
+    end)
+
+    -- AutoCollectRankRewards
+    getgenv().Toggles.AutoCollectRankRewardsToggle:OnChanged(function()
+        print("Auto Collect Rank Rewards: ", getgenv().Toggles.AutoCollectRankRewardsToggle.Value)
+        Util.CollectRankRewards()
+    end)
+
+    -- Anti AFK toggle
+    getgenv().Toggles.AntiAfkToggle:OnChanged(function()
+        print("Anti AFK: ", getgenv().Toggles.AntiAfkToggle.Value)
+        Util.AntiAfk()
+    end)
+
+    -- AutoTripleCoinsToggle
+    getgenv().Toggles.AutoTripleCoinsToggle:OnChanged(function()
+        print("Auto Triple Coins: ", getgenv().Toggles.AutoTripleCoinsToggle.Value)
+        Util.AutoTripleCoins()
+    end)
+
+    -- AutoTripleDamageToggle
+    getgenv().Toggles.AutoTripleDamageToggle:OnChanged(function()
+        print("Auto Triple Damage: ", getgenv().Toggles.AutoTripleDamageToggle.Value)
+        Util.AutoTripleDamage()
+    end)
+
+    -- AutoSuperLuckyToggle
+    getgenv().Toggles.AutoSuperLuckyToggle:OnChanged(function()
+        print("Auto Super Lucky: ", getgenv().Toggles.AutoSuperLuckyToggle.Value)
+        Util.AutoSuperLucky()
+    end)
+
+    -- AutoUltraLuckyToggle
+    getgenv().Toggles.AutoUltraLuckyToggle:OnChanged(function()
+        print("Auto Ultra Lucky: ", getgenv().Toggles.AutoUltraLuckyToggle.Value)
+        Util.AutoUltraLucky()
     end)
 
 end

@@ -5,6 +5,11 @@ local Util = {}
 local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
 local Fire, Invoke = Network.Fire, Network.Invoke
 
+local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
+while not Lib.Loaded do
+    game:GetService("RunService").Heartbeat:Wait()
+end
+
 -- Hooking the _check function to bypass the anticheat (Blunder) environment check.
 debug.setupvalue(Invoke, 1, function() return true end)
 debug.setupvalue(Fire, 1, function() return true end)
@@ -285,16 +290,16 @@ function Util.getMyPets()
         end
     end
 
-    function Util.RedeemRankRewards()
-        if getgenv().Toggles.AutoRedeemRankRewardsToggle.Value then
-            Util.notify("Auto redeem rank rewards enabled")
+    function Util.CollectRankRewards()
+        if getgenv().Toggles.AutoCollectRankRewardsToggle.Value then
+            Util.notify("Auto collect rank rewards enabled")
             task.spawn(function()
-                while getgenv().Toggles.AutoRedeemRankRewardsToggle.Value do
+                while getgenv().Toggles.AutoCollectRankRewardsToggle.Value do
                     Save = Lib.Save.Get()
                     rankCooldown = Lib.Directory.Ranks[Save.Rank].rewardCooldown
                     if ((Save["RankTimer"] + rankCooldown) < os.time()) then
-                        Util.notify("Redeeming rank rewards...")
-                        Invoke("Redeem Rank Rewards")
+                        Util.notify("collecting rank rewards...")
+                        Invoke("collect Rank Rewards")
                         task.wait(2)
                     else
                         print("Rank rewards not available...")
@@ -432,7 +437,7 @@ function Util.getMyPets()
                     for i,v in pairs(orbs:GetChildren()) do
                         v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
                     end
-                    task.wait(2)
+                    task.wait(1.1)
                 end
             end)
         else
@@ -470,6 +475,24 @@ function Util.getMyPets()
         print("Finishing hacker portal quest")
         Invoke("Finish Hacker Portal Quest")
         Fire("Hacker Portal Unlocked")
+    end
+
+    -- Auto collect lootbags
+    function Util.AutoCollectLootbags()
+        if getgenv().Toggles.AutoCollectLootbagsToggle.Value then
+            Util.notify("Auto lootbags enabled")
+            task.spawn(function()
+                while getgenv().Toggles.AutoCollectLootbagsToggle.Value do
+                    local lootbags = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Lootbags")
+                    for i,v in pairs(lootbags:GetChildren()) do
+                        v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+                    end
+                    task.wait(2)
+                end
+            end)
+        else
+            Util.notify("Auto lootbags disabled")
+        end
     end
 
 return Util
