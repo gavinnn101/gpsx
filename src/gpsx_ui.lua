@@ -112,10 +112,10 @@ function createGUI(group, areas)
 
     -- Auto hatch egg choice dropdown
     local eggData = Util.GetEggData()
-    local sortedEggsList = Util.GetSortedEggList(eggData)
+    local eggNameList = Util.GetEggNamesList(eggData)
     AutoHatchGroupBox:AddDropdown("AutoHatchEggChoiceDropdown", {
-        Values = sortedEggsList,
-        Default = "Cracked Egg", -- number index of the value / string
+        Values = eggNameList,
+        Default = "Cafe Egg", -- number index of the value / string
         Multi = false, -- true / false, allows multiple choices to be selected
         Text = "Auto Hatch Egg Choice",
         Tooltip = "Egg to auto hatch.",
@@ -144,7 +144,7 @@ function createGUI(group, areas)
     MiscGroupBox:AddToggle("AutoCollectRankRewardsToggle", {
         Text = "Auto Collect Rank Rewards",
         Default = false,
-        Tooltip = "Turn on to auto collect rank rewards.",
+        Tooltip = "Turn on to auto collect rank rewards (must be in range.)",
     })
 
     -- Anti AFK toggle
@@ -154,35 +154,62 @@ function createGUI(group, areas)
         Tooltip = "Turn on to enable anti afk.",
     })
 
+    -- Friend all players button
+    MiscGroupBox:AddButton("Friend all players", function() Util.FriendAllPlayers() end)
+
     -- Misc group box right
-    local MiscGroupBoxRight = Tabs["Misc"]:AddRightGroupbox("Auto Boosts")
+    local AutoBoostGroupBox = Tabs["Misc"]:AddRightGroupbox("Auto Boosts")
 
     -- Auto Triple Coins toggle
-    MiscGroupBoxRight:AddToggle("AutoTripleCoinsToggle", {
+    AutoBoostGroupBox:AddToggle("AutoTripleCoinsToggle", {
         Text = "Auto Triple Coins",
         Default = false,
         Tooltip = "Turn on to auto triple coins.",
     })
 
     -- Auto Triple Damage toggle
-    MiscGroupBoxRight:AddToggle("AutoTripleDamageToggle", {
+    AutoBoostGroupBox:AddToggle("AutoTripleDamageToggle", {
         Text = "Auto Triple Damage",
         Default = false,
         Tooltip = "Turn on to auto triple damage.",
     })
 
     -- Auto Super Lucky toggle
-    MiscGroupBoxRight:AddToggle("AutoSuperLuckyToggle", {
+    AutoBoostGroupBox:AddToggle("AutoSuperLuckyToggle", {
         Text = "Auto Super Lucky",
         Default = false,
         Tooltip = "Turn on to auto super lucky.",
     })
 
     -- Auto Ultra Lucky toggle
-    MiscGroupBoxRight:AddToggle("AutoUltraLuckyToggle", {
+    AutoBoostGroupBox:AddToggle("AutoUltraLuckyToggle", {
         Text = "Auto Ultra Lucky",
         Default = false,
         Tooltip = "Turn on to auto ultra lucky.",
+    })
+
+    -- Auto server boost group box
+    local AutoServerBoostGroupBox = Tabs["Misc"]:AddRightGroupbox("Auto Server Boosts")
+
+    -- Auto server triple coins toggle
+    AutoServerBoostGroupBox:AddToggle("AutoServerTripleCoinsToggle", {
+        Text = "Auto Server Triple Coins",
+        Default = false,
+        Tooltip = "Auto enable server triple coins.",
+    })
+
+    -- Auto server triple damage toggle
+    AutoServerBoostGroupBox:AddToggle("AutoServerTripleDamageToggle", {
+        Text = "Auto Server Triple Damage",
+        Default = false,
+        Tooltip = "Auto enable server triple damage.",
+    })
+
+    -- Auto server super lucky toggle
+    AutoServerBoostGroupBox:AddToggle("AutoServerSuperLuckyToggle", {
+        Text = "Auto Server Super Lucky",
+        Default = false,
+        Tooltip = "Auto enable server super lucky.",
     })
 
     -- Resource Savers box left
@@ -221,7 +248,7 @@ function createGUI(group, areas)
     ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
     -- Load config based on account group
-    local group = "autofarm" -- for testing
+    -- local group = "autofarm" -- for testing
     SaveManager:Load(group)
     Library:Notify("Loaded config: " .. group)
 end

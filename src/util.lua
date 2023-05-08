@@ -12,6 +12,7 @@ end
 
 local Client = require(game.ReplicatedStorage.Library.Client)
 local RunService = game:GetService("RunService")
+local tp = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 
 -- Hooking the _check function to bypass the anticheat (Blunder) environment check.
 debug.setupvalue(Invoke, 1, function() return true end)
@@ -88,7 +89,7 @@ function Util.GetEggData()
     -- areaRequired: bool
     -- hardcoreEnabled: bool
     -- currency: coin type (Coins, Rainbow Coins, Fantasy Coins)
-    -- area: in-game area (Winter, Forest, Axolotl Deep Ocean)
+    -- area: in-game area (Winter, Forest, Axolotl Deep Ocean) (this is also the area mapped to the egg dispenser)
 
     --Generate Egg Data
     local eggsData = {}
@@ -102,7 +103,9 @@ function Util.GetEggData()
             if mod then
                 local eggInfo = require(mod)
                 if eggInfo.hatchable and not eggInfo.disabled then
-                    eggsData[{["name"] = ve.Name, ["world"] = v.Name}] = eggInfo
+                    -- ve.Name = Egg name for buy egg invoke.
+                    -- eggInfo.displayName = Name to match with dispenser / area
+                    eggsData[ve.Name] = eggInfo
                 end
             end
         end
@@ -110,37 +113,12 @@ function Util.GetEggData()
     return eggsData
 end
 
-function Util.GetEggName(fullString)
-    local eggName = string.match(fullString, "^(.-)%s*%-")
-    return eggName or fullString
-end
-
-
-function Util.GetSortedEggList(eggsData)
-    -- Generate a table containing eggs displayName
-    local eggOptions = {}
-    for key, eggData in pairs(eggsData or {}) do
-        local displayName = eggData.displayName
-        local world = key.world
-        local eggName = Util.GetEggName(displayName)
-        table.insert(eggOptions, {displayName = eggName, world = world})
+function Util.GetEggNamesList(eggsData)
+    local eggNamesList = {}
+    for eggName, _ in pairs(eggsData) do
+        table.insert(eggNamesList, eggName)
     end
-
-    -- Sort the eggOptions by world and then by displayName
-    table.sort(eggOptions, function(a, b)
-        if a.world == b.world then
-            return a.displayName < b.displayName
-        else
-            return a.world < b.world
-        end
-    end)
-
-    -- Extract the displayName from the sorted eggOptions
-    local sortedDisplayNames = {}
-    for _, option in ipairs(eggOptions) do
-        table.insert(sortedDisplayNames, option.displayName)
-    end
-    return sortedDisplayNames
+    return eggNamesList
 end
 
 -- Get all areas
@@ -231,6 +209,7 @@ function Util.AutoFarm()
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Nearest" then
                     -- Farm nearest coins
+                    -- WE SHOULD TRY NEAREST METHOD FROM HUGE GAMES INSTEAD.
                     local NearestOne = nil
                     local NearestDistance = math.huge
                     for i,v in pairs(game:GetService("Workspace")["__THINGS"].Coins:GetChildren()) do
@@ -279,14 +258,60 @@ function Util.AutoFarm()
     end
 end
 
+-- Returns the CFrame of the Egg Dispenser
+function Util.GetEggDispenserLocation(eggAreaName)
+    local eggs = game:GetService("Workspace")["__MAP"].Eggs
+
+    for _, eggArea in pairs(eggs:GetChildren()) do
+        local eggAreaString = tostring(eggArea)
+        if string.find(eggAreaString, eggAreaName) then
+            print("Found egg area: " .. eggAreaString)
+            local eggsFolder = eggArea:FindFirstChild("Eggs")
+            if eggsFolder then
+                for _, eggCapsule in ipairs(eggsFolder:GetChildren()) do
+                    if eggCapsule.Name == "Egg Capsule" then
+                        local eggObject = eggCapsule:FindFirstChild("Egg")
+                        if eggObject then
+                            print("Egg object found: " .. eggObject.Name)
+                            print("Egg object CFrame: " .. tostring(eggObject.CFrame))
+                            return eggObject.CFrame
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function Util.TeleportToEggDispenser(eggAreaName)
+    print("Calling GetEggDispenserLocation with area: " .. eggAreaName)
+    local eggDispenserLocation = Util.GetEggDispenserLocation(eggAreaName)
+    -- Slight offset otherwise we'll teleport inside the object and won't be able to move.
+    local offset = Vector3.new(0, 0, 5)
+    local teleportLocation = eggDispenserLocation + offset
+    -- print("Teleporting to egg dispenser location: " .. tostring(teleportLocation))
+    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = teleportLocation
+end
+
 function Util.AutoHatch()
     if getgenv().Toggles.AutoHatchEnabledToggle.Value then
         Util.notify("Auto hatch enabled")
         Util.notify("Egg choice: " .. tostring(getgenv().Options.AutoHatchEggChoiceDropdown.Value))
         task.spawn(function()
+            local eggsData = Util.GetEggData()
+            local chosenEggName = tostring(getgenv().Options.AutoHatchEggChoiceDropdown.Value)
+            local chosenEgg = eggsData[chosenEggName]
+            local chosenEggArea = chosenEgg.area
+            -- Teleporting to world if needed
+            set_thread_identity(2)
+            print("Teleporting to: " .. chosenEggArea)
+            tp.Teleport(chosenEggArea)
+            task.wait(10)
+            print("Moving character to egg dispenser: " .. chosenEggArea)
+            Util.TeleportToEggDispenser(chosenEggArea)
             while getgenv().Toggles.AutoHatchEnabledToggle.Value do
-                Util.notify("Hatching egg: " .. getgenv().Options.AutoHatchEggChoiceDropdown.Value)
-                Invoke("Buy Egg", getgenv().Options.AutoHatchEggChoiceDropdown.Value, getgenv().Toggles.EnableTripleHatchToggle.Value, getgenv().Toggles.EnableOctupleHatchToggle.Value)
+                Util.notify("Hatching egg: " .. chosenEggName)
+                Invoke("Buy Egg", chosenEggName, getgenv().Toggles.EnableTripleHatchToggle.Value, getgenv().Toggles.EnableOctupleHatchToggle.Value)
                 task.wait(1.5)
             end
         end)
@@ -428,6 +453,84 @@ function Util.AutoUltraLucky()
     end
 end
 
+function Util.GetServerBoostData()
+    local activeBoostsData = {}
+    local activeBoosts = Lib.ServerBoosts.GetActiveBoosts()
+
+    -- Names are in order: "Insane Luck table", "Triple Coins table", "Super Lucky table", "Triple Damage table"
+    for boostName, boostTable in pairs(activeBoosts) do
+        -- print("Boost name: " ..boostName)
+        -- print("Boost table: " ..tostring(boostTable))
+        for _, timeRemaining in pairs(boostTable) do
+            print(timeRemaining)
+            activeBoostsData[boostName] = timeRemaining
+        end
+    end
+    return activeBoostsData
+end
+
+function Util.UseServerBoost(boostName)
+    print("Using server boost: " .. boostName)
+    Fire("Activate Server Boost", boostName)
+end
+
+function Util.AutoServerTripleCoins()
+    if getgenv().Toggles.AutoServerTripleCoinsToggle.Value then
+        Util.notify("Auto server triple coins enabled")
+        task.spawn(function()
+            while getgenv().Toggles.AutoServerTripleCoinsToggle.Value do
+                local serverBoostData = Util.GetServerBoostData()
+                if not serverBoostData["Triple Coins"] or serverBoostData["Triple Coins"] < 60 then
+                    Util.notify("Activating server triple coins")
+                    Util.UseServerBoost("Triple Coins")
+                    task.wait(5)
+                end
+                task.wait(5)
+            end
+        end)
+    else
+        Util.notify("Auto server triple coins disabled")
+    end
+end
+
+function Util.AutoServerTripleDamage()
+    if getgenv().Toggles.AutoServerTripleDamageToggle.Value then
+        Util.notify("Auto server triple damage enabled")
+        task.spawn(function()
+            while getgenv().Toggles.AutoServerTripleDamageToggle.Value do
+                local serverBoostData = Util.GetServerBoostData()
+                if not serverBoostData["Triple Damage"] or serverBoostData["Triple Damage"] < 60 then
+                    Util.notify("Activating server triple damage")
+                    Util.UseServerBoost("Triple Damage")
+                    task.wait(5)
+                end
+                task.wait(5)
+            end
+        end)
+    else
+        Util.notify("Auto server triple damage disabled")
+    end
+end
+
+function Util.AutoServerSuperLucky()
+    if getgenv().Toggles.AutoServerSuperLuckyToggle.Value then
+        Util.notify("Auto server super lucky enabled")
+        task.spawn(function()
+            while getgenv().Toggles.AutoServerSuperLuckyToggle.Value do
+                local serverBoostData = Util.GetServerBoostData()
+                if not serverBoostData["Super Lucky"] or serverBoostData["Super Lucky"] < 60 then
+                    Util.notify("Activating server super lucky")
+                    Util.UseServerBoost("Super Lucky")
+                    task.wait(5)
+                end
+                task.wait(5)
+            end
+        end)
+    else
+        Util.notify("Auto server super lucky disabled")
+    end
+end
+
 function Util.UnlockGamepasses()
     Util.notify("Unlocking gamepasses")
     task.spawn(function()
@@ -493,6 +596,13 @@ function Util.AntiAfk()
         end
         Util.notify("Anti afk disabled")
     end
+end
+
+function Util.FriendAllPlayers()
+    task.spawn(function()
+        print("Sending friend request to all players")
+        for _,z in pairs(game.Players:GetChildren()) do game.Players.LocalPlayer:RequestFriendship(z) end
+    end)
 end
 
 -- Unlock hacker portal function

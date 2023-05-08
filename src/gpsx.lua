@@ -123,6 +123,24 @@ function loadScript(arg)
         Util.AutoUltraLucky()
     end)
 
+    -- AutoServerTripleCoinsToggle
+    getgenv().Toggles.AutoServerTripleCoinsToggle:OnChanged(function()
+        print("Auto Server Triple Coins: ", getgenv().Toggles.AutoServerTripleCoinsToggle.Value)
+        Util.AutoServerTripleCoins()
+    end)
+
+    -- AutoServerTripleDamageToggle
+    getgenv().Toggles.AutoServerTripleDamageToggle:OnChanged(function()
+        print("Auto Server Triple Damage: ", getgenv().Toggles.AutoServerTripleDamageToggle.Value)
+        Util.AutoServerTripleDamage()
+    end)
+
+    -- AutoServerSuperLuckyToggle
+    getgenv().Toggles.AutoServerSuperLuckyToggle:OnChanged(function()
+        print("Auto Server Super Lucky: ", getgenv().Toggles.AutoServerSuperLuckyToggle.Value)
+        Util.AutoServerSuperLucky()
+    end)
+
     -- SkipEggAnimationToggle
     getgenv().Toggles.SkipEggAnimationToggle:OnChanged(function()
         print("Skip Egg Animation: ", getgenv().Toggles.SkipEggAnimationToggle.Value)
