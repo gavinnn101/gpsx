@@ -229,9 +229,24 @@ function Util.AutoFarm()
                         end
                         repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
                     end
-                elseif getgenv().Options.FarmTypeDropdown.Value == "Chest" then
-                    -- Chest farm
-                    print("chest farm enabled.")
+                elseif getgenv().Options.FarmTypeDropdown.Value == "Nearest" then
+                    -- Farm nearest coins
+                    local NearestOne = nil
+                    local NearestDistance = math.huge
+                    for i,v in pairs(game:GetService("Workspace")["__THINGS"].Coins:GetChildren()) do
+                        task.wait(0.1)
+                        if (v.POS.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < NearestDistance then
+                            NearestOne = v
+                            NearestDistance = (v.POS.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                        end
+                    end
+                    for _, pet in pairs(myPets) do
+                        task.wait(0.1)
+                        task.spawn(function()
+                            Util.FarmCoin(NearestOne.Name, pet.uid)
+                            repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(NearestOne)
+                        end)
+                    end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Multi Target" then
                     -- Multi target farm
                     print("looking for coins in: " .. getgenv().Options.FarmAreaDropdown.Value)
@@ -250,6 +265,12 @@ function Util.AutoFarm()
                             end)
                         end
                     end
+                elseif getgenv().Options.FarmTypeDropdown.Value == "Highest Value" then
+                    local coins = Util.GetCoins(getgenv().Options.FarmAreaDropdown.Value)
+                    for _, pet in pairs(myPets) do
+                        task.spawn(function() task.wait() Util.FarmCoin(coins[1].index, pet.uid) end)
+                    end
+                    repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[1].index) or #game:GetService("Workspace")["__THINGS"].Pets:GetChildren() == 0
                 end
             end
         end)

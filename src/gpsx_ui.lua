@@ -64,7 +64,7 @@ function createGUI(group, areas)
 
     -- Auto farm type dropdown
     AutoFarmGroupBox:AddDropdown('FarmTypeDropdown', {
-        Values = {"Normal", "Chest", "Multi Target"},
+        Values = {"Normal", "Nearest", "Multi Target", "Highest Value"},
         Default = "Normal", -- number index of the value / string
         Multi = false, -- true / false, allows multiple choices to be selected
         Text = 'Auto Farm Type',
@@ -221,7 +221,7 @@ function createGUI(group, areas)
     ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
     -- Load config based on account group
-    -- local group = "autofarm" -- for testing
+    local group = "autofarm" -- for testing
     SaveManager:Load(group)
     Library:Notify("Loaded config: " .. group)
 end
