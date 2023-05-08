@@ -195,6 +195,8 @@ while true do
                             end
                         end
                         repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index)
+                        -- Wait for loot to get picked up before continuing
+                        task.wait(6)
                     end
                 else
                     print("Comet already destroyed.")
