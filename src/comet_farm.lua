@@ -2,48 +2,44 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
-local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+
+
+local Network = require(ReplicatedStorage.Library.Client.Network)
 local Fire, Invoke = Network.Fire, Network.Invoke
+
+local tp = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 
 local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
 while not Lib.Loaded do
-    game:GetService("RunService").Heartbeat:Wait()
+    RunService.Heartbeat:Wait()
 end
-
-local Client = require(game.ReplicatedStorage.Library.Client)
-local RunService = game:GetService("RunService")
-local tp = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 
 debug.setupvalue(Invoke, 1, function() return true end)
 debug.setupvalue(Fire, 1, function() return true end)
 
 function GetComets(area)
-    local returntable = {}
+    local cometsFound = {}
     local listCoins = Invoke("Get Coins")
-
-    for i,v in pairs(listCoins) do
-        local isComet = false
-        for ie, ve in pairs(v) do
-            if ie == "n" then
-                if ve:match("Comet") then
-                    isComet = true
-                    break
-                end
-            end
-        end
-
-        if isComet and area == v.a then
+    -- Loop over coin data and find comets
+    for i, v in pairs(listCoins) do
+        if area == v.a and v.n:match("Comet") then
             local coin = v
             coin["index"] = i
-            table.insert(returntable, coin)
+            table.insert(cometsFound, coin)
         end
     end
-    return returntable
+    return cometsFound
 end
 
 function UnlockTeleports()
     Lib.Gamepasses.Owns = function() return true end
-    local teleportScript = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+    local teleportScript = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
     if teleportScript.UpdateAreas then
         teleportScript.UpdateAreas()
         teleportScript.UpdateBottom()
@@ -51,22 +47,25 @@ function UnlockTeleports()
 end
 
 function HopToNewServer()
-    local Servers = game.HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
     local success, errorMsg
 
-    for i, v in pairs(Servers.data) do
-        if v.playing ~= v.maxPlayers then
-            print("Attempting to teleport to server: ", v.id)
-            success, errorMsg = pcall(function()
-                game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, v.id)
-                repeat task.wait() until game.JobId == v.id and game:IsLoaded()
-            end)
+    while not success do
+        local Servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
 
-            if success then
-                print("Successfully teleported to server: ", v.id)
-                break
-            else
-                print("Failed to teleport to server: ", v.id, " Error: ", errorMsg)
+        for _, v in ipairs(Servers.data) do
+            if v.playing ~= v.maxPlayers then
+                print("Attempting to teleport to server: ", v.id)
+                success, errorMsg = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+                    repeat RunService.RenderStepped:Wait() until game.JobId == v.id and game:IsLoaded()
+                end)
+
+                if success then
+                    print("Successfully teleported to server: ", v.id)
+                    break
+                else
+                    print("Failed to teleport to server: ", v.id, " Error: ", errorMsg)
+                end
             end
         end
     end
@@ -134,11 +133,23 @@ function GetMyPets()
     return Lib.PetCmds.GetEquipped()
 end
 
+-- Returns table of lootbags
+function GetLootBags()
+    local lootbags = Workspace["__THINGS"]:FindFirstChild("Lootbags")
+    return lootbags:GetChildren()
+end
+
+-- Returns table of orbs
+function GetOrbs()
+    local orbs = Workspace["__THINGS"]:FindFirstChild("Orbs")
+    return orbs:GetChildren()
+end
+
 function AutoCollectLootBags()
     task.spawn(function()
         while true and game:IsLoaded() do
-            local lootbags = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Lootbags")
-            for i,v in pairs(lootbags:GetChildren()) do
+            local lootbags = GetLootBags()
+            for _, v in ipairs(lootbags) do
                 v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
                 task.wait(0.1)
             end
@@ -150,9 +161,10 @@ end
 function AutoCollectOrbs()
     task.spawn(function()
         while true and game:IsLoaded() do
-            local orbs = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Orbs")
-            for i,v in pairs(orbs:GetChildren()) do
+            local orbs = GetOrbs()
+            for _, v in ipairs(orbs) do
                 v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+                task.wait(0.1)
             end
             task.wait(1)
         end
@@ -189,6 +201,14 @@ function AutoTripleCoins()
     end)
 end
 
+-- https://v3rmillion.net/showthread.php?tid=1119874
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(p1)
+    if p1.Name == "ErrorPrompt" then
+        print("Detected error prompt. Trying to rejoin game")
+        game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+    end
+end)
+
 -- Unlock teleports so we can get to the comets
 UnlockTeleports()
 -- auto collect loot
@@ -219,18 +239,14 @@ while true do
                     local cometCoinObjects = GetComets(cometArea)
                     local myPets = GetMyPets()
                     for i = 1, #cometCoinObjects do
-                        if game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
+                        if Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
                             print("Found child coin, idx: " ..cometCoinObjects[i].index)
                             for _, pet in pairs(myPets) do
                                 print("pet loop, idx: " .. tostring(_))
-                                task.spawn(function()
-                                    FarmCoin(cometCoinObjects[i].index, pet.uid)
-                                end)
+                                FarmCoin(cometCoinObjects[i].index, pet.uid)
                             end
                         end
-                        repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index)
-                        -- Wait for loot to get picked up before continuing
-                        task.wait(6)
+                        repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
                     end
                 else
                     print("Comet already destroyed.")
