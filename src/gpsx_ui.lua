@@ -80,6 +80,16 @@ function createGUI(group, areas)
         Tooltip = "Area to auto farm in.",
     })
 
+    -- Auto comet farm groupbox
+    local AutoCometFarmGroupBox = Tabs["Auto Farm"]:AddRightGroupbox("Auto Comet Farm")
+
+    -- Auto comet farm enabled toggle
+    AutoCometFarmGroupBox:AddToggle("AutoCometFarmEnabledToggle", {
+        Text = "Auto Comet Farm Enabled",
+        Default = false,
+        Tooltip = "Turn on to start auto comet farm.",
+    })
+
     -- Auto hatch group box
     local AutoHatchGroupBox = Tabs["Auto Hatch"]:AddLeftGroupbox("Auto Hatch")
     -- Auto hatch enabled toggle

@@ -258,6 +258,61 @@ function Util.AutoFarm()
     end
 end
 
+function Util.AutoCometFarm()
+    if getgenv().Toggles.AutoCometFarmEnabledToggle.Value then
+        print("Auto comet farm enabled!")
+    end
+end
+
+function Util.HopToNewServer()
+    local Servers = game.HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
+    for i,v in pairs(Servers.data) do
+      if v.playing ~= v.maxPlayers then
+          game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, v.id)
+      end
+    end
+end
+
+function Util.GetCometData()
+    local cometsFound = {}
+    local cometData, _ = Invoke("Comets: Get Data")
+
+    local v32, v33, v34 = pairs(cometData);
+    -- v32: some kind of function that gets comet data from the table. pairs? but why the 2nd param?
+    print("v32: ", tostring(v32))
+    -- v33: table, I think stores the comet data.
+    print("v33: ", tostring(v33))
+    -- v34: nil
+    print("v34: ", tostring(v34))
+    
+    local cometID, cometData = v32(v33, v34);
+    if cometID then
+        local comet = {}
+        -- Add comet to table
+        print("v35: ", tostring(cometID))
+        print("v36: ", tostring(cometData))
+        -- loop over v36 table
+        for i, v in pairs(cometData) do
+            comet[i] = v
+            -- print values
+            -- i: Type Mini     v: Comet
+            -- i: CoinId        v: 3175
+            -- i: EndTime       v: <int in seconds(I think)>
+            -- i: Destroyed     v: false
+            -- i: AreaId        v: Doodle Fairyland
+            -- i: SpawnPosition v: <Position>
+            -- i: Id unique id  v: (ex: 123abc-456def-789ghi)
+            -- i: Speed         v: 30
+            -- i: TimeCheck     v: <int in seconds(I think. probably current time?)>
+            -- i: WorldId       v: Doodle
+            -- i: EndPosition   v: <Position>
+            -- print(i, v)
+        end
+        table.insert(cometsFound, comet)
+    end
+    return cometsFound
+end
+
 -- Returns the CFrame of the Egg Dispenser
 function Util.GetEggDispenserLocation(eggAreaName)
     local eggs = game:GetService("Workspace")["__MAP"].Eggs

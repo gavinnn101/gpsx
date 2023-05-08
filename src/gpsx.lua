@@ -51,6 +51,12 @@ function loadScript(arg)
         print('Using auto farm area: ', getgenv().Options.FarmAreaDropdown.Value)
     end)
 
+    -- AutoCometFarmEnabledToggle
+    getgenv().Toggles.AutoCometFarmEnabledToggle:OnChanged(function()
+        print("Auto Comet Farm Enabled: ", getgenv().Toggles.AutoCometFarmEnabledToggle.Value)
+        Util.AutoCometFarm()
+    end)
+
     -- AutoHatchEnabledToggle
     getgenv().Toggles.AutoHatchEnabledToggle:OnChanged(function()
         print("Auto Hatch Enabled: ", getgenv().Toggles.AutoHatchEnabledToggle.Value)
