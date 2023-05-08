@@ -159,11 +159,45 @@ function AutoCollectOrbs()
     end)
 end
 
+function AutoTripleDamage()
+    task.spawn(function()
+        while true and game:IsLoaded() do
+            -- activate triple damage "potion" if not already active
+            local Save = Lib.Save.Get()
+            if Save["Boosts"]["Triple Damage"] == nil or Save["Boosts"]["Triple Damage"] < 60 then
+                print("Activating triple damage")
+                Fire("Activate Boost", "Triple Damage")
+                task.wait(5)
+            end
+            task.wait(5)
+        end
+    end)
+end
+
+function AutoTripleCoins()
+    task.spawn(function()
+        while true and game:IsLoaded() do
+            -- activate triple coins "potion" if not already active
+            local Save = Lib.Save.Get()
+            if Save["Boosts"]["Triple Coins"] == nil or Save["Boosts"]["Triple Coins"] < 60 then
+                print("Activating triple coins")
+                Fire("Activate Boost", "Triple Coins")
+                task.wait(5)
+            end
+            task.wait(5)
+        end
+    end)
+end
+
 -- Unlock teleports so we can get to the comets
 UnlockTeleports()
 -- auto collect loot
 AutoCollectLootBags()
 AutoCollectOrbs()
+-- Auto triple damage to break comets faster
+AutoTripleDamage()
+-- Auto triple coins (not sure if triple coins helps with comets tbh but just in case.)
+AutoTripleCoins()
 
 while true do
     task.wait(1)
