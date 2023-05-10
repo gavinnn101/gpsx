@@ -1,6 +1,8 @@
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
+pcall(function()
+    repeat
+        task.wait()
+    until game:IsLoaded()
+end)
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -8,7 +10,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
-
 
 local Network = require(ReplicatedStorage.Library.Client.Network)
 local Fire, Invoke = Network.Fire, Network.Invoke
@@ -29,6 +30,7 @@ function GetComets(area)
     -- Loop over coin data and find comets
     for i, v in pairs(listCoins) do
         if area == v.a and v.n:match("Comet") then
+            print("Adding found comet 'coin' to table")
             local coin = v
             coin["index"] = i
             table.insert(cometsFound, coin)
@@ -46,18 +48,25 @@ function UnlockTeleports()
     end
 end
 
-function HopToNewServer()
-    local success, errorMsg
+function HopToNewServer(maxRetries, retryDelay)
+    maxRetries = maxRetries or 5  -- Default to 5 retries if not provided
+    retryDelay = retryDelay or 5  -- Default to 5 seconds delay if not provided
 
-    while not success do
-        local Servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
+    local success, errorMsg
+    local retryCount = 0
+
+    while not success and retryCount < maxRetries do
+        local _success, Servers = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
+        end)
 
         for _, v in ipairs(Servers.data) do
             if v.playing ~= v.maxPlayers then
                 print("Attempting to teleport to server: ", v.id)
                 success, errorMsg = pcall(function()
                     TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-                    repeat RunService.RenderStepped:Wait() until game.JobId == v.id and game:IsLoaded()
+                    -- I think commenting this out will potentially fix getting stuck in a server when we hit a teleport error.
+                    -- repeat RunService.RenderStepped:Wait() until game.JobId == v.id and game:IsLoaded()
                 end)
 
                 if success then
@@ -65,17 +74,23 @@ function HopToNewServer()
                     break
                 else
                     print("Failed to teleport to server: ", v.id, " Error: ", errorMsg)
+                    retryCount = retryCount + 1
+                    task.wait(retryDelay)
                 end
             end
         end
+    end
+
+    if retryCount >= maxRetries then
+        print("Exceeded maximum retries. Unable to teleport to a new server.")
     end
 end
 
 function GetCometData()
     local cometsFound = {}
-    local cometData, _ = Invoke("Comets: Get Data")
+    local cometTable, _ = Invoke("Comets: Get Data")
 
-    local v32, v33, v34 = pairs(cometData);
+    local v32, v33, v34 = pairs(cometTable);
     -- v32: some kind of function that gets comet data from the table. pairs? but why the 2nd param?
     print("v32: ", tostring(v32))
     -- v33: table, I think stores the comet data.
@@ -90,9 +105,9 @@ function GetCometData()
         print("v35: ", tostring(cometID))
         print("v36: ", tostring(cometData))
         -- skip if AreaId == Mystic Mine (Need Pet Overlord rank to unlock...)
-        if cometData.AreaId == "Mystic Mine" then
-            return {}
-        end
+        -- if cometData.AreaId == "Mystic Mine" then
+        --     return {}
+        -- end
         -- loop over v36 table
         for i, v in pairs(cometData) do
             comet[i] = v
@@ -130,6 +145,7 @@ function FarmCoin(CoinID, PetID)
 end
 
 function GetMyPets()
+    print("Returning equipped pets")
     return Lib.PetCmds.GetEquipped()
 end
 
@@ -179,7 +195,7 @@ function AutoTripleDamage()
             if Save["Boosts"]["Triple Damage"] == nil or Save["Boosts"]["Triple Damage"] < 60 then
                 print("Activating triple damage")
                 Fire("Activate Boost", "Triple Damage")
-                task.wait(5)
+                task.wait(1)
             end
             task.wait(5)
         end
@@ -194,20 +210,33 @@ function AutoTripleCoins()
             if Save["Boosts"]["Triple Coins"] == nil or Save["Boosts"]["Triple Coins"] < 60 then
                 print("Activating triple coins")
                 Fire("Activate Boost", "Triple Coins")
-                task.wait(5)
+                task.wait(1)
             end
             task.wait(5)
         end
     end)
 end
 
--- https://v3rmillion.net/showthread.php?tid=1119874
-game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(p1)
-    if p1.Name == "ErrorPrompt" then
-        print("Detected error prompt. Trying to rejoin game")
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
-    end
-end)
+function AutoCollectFreeGifts()
+    task.spawn(function()
+        while true and game:IsLoaded() do
+            -- print("Checking for free gifts...")
+            local txt = game:GetService("Players").LocalPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
+            if txt == "Ready!" then
+                print("Collecting gifts...")
+                for i = 1,12 do
+                    print("Collecting gift number: " .. i)
+                    Invoke("Redeem Free Gift", i)
+                    task.wait(1.2)
+                end
+            else
+                print("Free gifts aren't ready to collect...")
+                task.wait(60)
+            end
+            task.wait(1)
+        end
+    end)
+end
 
 -- Unlock teleports so we can get to the comets
 UnlockTeleports()
@@ -218,8 +247,27 @@ AutoCollectOrbs()
 AutoTripleDamage()
 -- Auto triple coins (not sure if triple coins helps with comets tbh but just in case.)
 AutoTripleCoins()
+-- Auto collect free gifts (may as well try for huge cupcake.)
+-- Might want to turn off in some scenarios if you want to collect the gifts in a certain area for all the coins you get in the last 2.
+AutoCollectFreeGifts()
+
+local serverTimeout = 200 -- Set the timeout duration in seconds
+local serverJoinTime = tick()
 
 while true do
+    -- https://v3rmillion.net/showthread.php?tid=1119874
+    if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
+        print("Detected error prompt. Trying to rejoin game")
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+    end
+
+    -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.
+    if tick() - serverJoinTime >= serverTimeout then
+        print("Timeout reached. Hopping to a new server.")
+        HopToNewServer()
+        serverJoinTime = tick()
+    end
+
     task.wait(1)
     local comets = GetCometData()
     if comets then
@@ -237,23 +285,24 @@ while true do
                     TeleportToArea(cometArea)
                     -- get coin data for area
                     local cometCoinObjects = GetComets(cometArea)
-                    local myPets = GetMyPets()
                     for i = 1, #cometCoinObjects do
+                        print("Looking for comet 'coin' child in Coins workspace")
                         if Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
                             print("Found child coin, idx: " ..cometCoinObjects[i].index)
+                            local myPets = GetMyPets()
                             for _, pet in pairs(myPets) do
                                 print("pet loop, idx: " .. tostring(_))
                                 FarmCoin(cometCoinObjects[i].index, pet.uid)
                             end
+                            repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
                         end
-                        repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
                     end
                 else
                     print("Comet already destroyed.")
                 end
             end
         else
-            print("No comet found.")
+            print("No comet found. Changing servers.")
             HopToNewServer()
         end
     end
