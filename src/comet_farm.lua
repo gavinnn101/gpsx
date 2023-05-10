@@ -257,8 +257,8 @@ local serverJoinTime = tick()
 while true do
     -- https://v3rmillion.net/showthread.php?tid=1119874
     if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
-        print("Detected error prompt. Trying to rejoin game")
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+        print("Detected error prompt. Trying to join new game")
+        HopToNewServer()
     end
 
     -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.

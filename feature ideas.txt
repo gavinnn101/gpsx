@@ -1,0 +1,12 @@
+* Bot management panel
+    * Can view stats per bot
+        * all time stats
+        * session stats
+            * session time
+            * total earned in session
+            * earned per hour in session
+    * shutdown bot 
+    * start up bot would also be cool but depends on being able to open the executor programatically I think
+    * Bots should report their server id to REST API if they find a comet. 
+    * * If another bot for a user starts to server hop, it should check if there's a found comet from the API.
+    * * If there's no comet available, hop to a random server like normal.
