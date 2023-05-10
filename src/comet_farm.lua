@@ -1,8 +1,60 @@
-pcall(function()
-    repeat
-        task.wait()
-    until game:IsLoaded()
+function HopToNewServer(maxRetries, retryDelay)
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    maxRetries = maxRetries or 5  -- Default to 5 retries if not provided
+    retryDelay = retryDelay or 5  -- Default to 5 seconds delay if not provided
+
+    local success, errorMsg
+    local retryCount = 0
+
+    while not success and retryCount < maxRetries do
+        local _success, Servers = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
+        end)
+
+        for _, v in ipairs(Servers.data) do
+            -- Avoid servers that are 11/12 in case someone else joins when we join.
+            if tonumber(v.playing) < (tonumber(v.maxPlayers) - 1) then
+                print("Attempting to teleport to server: ", v.id)
+                success, errorMsg = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+                    -- I think commenting this out will potentially fix getting stuck in a server when we hit a teleport error.
+                    -- repeat RunService.RenderStepped:Wait() until game.JobId == v.id and game:IsLoaded()
+                end)
+
+                if success then
+                    print("Successfully teleported to server: ", v.id)
+                    break
+                else
+                    print("Failed to teleport to server: ", v.id, " Error: ", errorMsg)
+                    retryCount = retryCount + 1
+                    task.wait(retryDelay)
+                end
+            end
+        end
+    end
+
+    if retryCount >= maxRetries then
+        print("Exceeded maximum retries. Unable to teleport to a new server.")
+    end
+end
+
+-- Server hop if we get stuck in the load screen. This solves error code 279.
+local success, errorMsg = pcall(function()
+    local timer = 60
+    while timer > 0 and not game:IsLoaded() do
+        task.wait(1)
+        timer = timer - 1
+    end
+    if timer == 0 then
+        HopToNewServer()
+    end
 end)
+
+if not success then
+    print("Error occurred: ", errorMsg)
+    HopToNewServer()
+end
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -47,44 +99,6 @@ function UnlockTeleports()
     if teleportScript.UpdateAreas then
         teleportScript.UpdateAreas()
         teleportScript.UpdateBottom()
-    end
-end
-
-function HopToNewServer(maxRetries, retryDelay)
-    maxRetries = maxRetries or 5  -- Default to 5 retries if not provided
-    retryDelay = retryDelay or 5  -- Default to 5 seconds delay if not provided
-
-    local success, errorMsg
-    local retryCount = 0
-
-    while not success and retryCount < maxRetries do
-        local _success, Servers = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
-        end)
-
-        for _, v in ipairs(Servers.data) do
-            if v.playing ~= v.maxPlayers then
-                print("Attempting to teleport to server: ", v.id)
-                success, errorMsg = pcall(function()
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-                    -- I think commenting this out will potentially fix getting stuck in a server when we hit a teleport error.
-                    -- repeat RunService.RenderStepped:Wait() until game.JobId == v.id and game:IsLoaded()
-                end)
-
-                if success then
-                    print("Successfully teleported to server: ", v.id)
-                    break
-                else
-                    print("Failed to teleport to server: ", v.id, " Error: ", errorMsg)
-                    retryCount = retryCount + 1
-                    task.wait(retryDelay)
-                end
-            end
-        end
-    end
-
-    if retryCount >= maxRetries then
-        print("Exceeded maximum retries. Unable to teleport to a new server.")
     end
 end
 
