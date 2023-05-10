@@ -21,6 +21,8 @@ while not Lib.Loaded do
     RunService.Heartbeat:Wait()
 end
 
+local _coins = Workspace["__THINGS"].Coins
+
 debug.setupvalue(Invoke, 1, function() return true end)
 debug.setupvalue(Fire, 1, function() return true end)
 
@@ -90,42 +92,28 @@ function GetCometData()
     local cometsFound = {}
     local cometTable, _ = Invoke("Comets: Get Data")
 
-    local v32, v33, v34 = pairs(cometTable);
-    -- v32: some kind of function that gets comet data from the table. pairs? but why the 2nd param?
-    print("v32: ", tostring(v32))
-    -- v33: table, I think stores the comet data.
-    print("v33: ", tostring(v33))
-    -- v34: nil
-    print("v34: ", tostring(v34))
-
-    local cometID, cometData = v32(v33, v34);
-    if cometID then
-        local comet = {}
-        -- Add comet to table
-        print("v35: ", tostring(cometID))
-        print("v36: ", tostring(cometData))
+    for cometID, cometData in pairs(cometTable) do
         -- skip if AreaId == Mystic Mine (Need Pet Overlord rank and lose 1 huge pet to unlock!)
-        if cometData.AreaId == "Mystic Mine" then
-            return {}
+        if cometData.AreaId ~= "Mystic Mine" then
+            local comet = {}
+            -- loop over cometData table
+            for i, v in pairs(cometData) do
+                comet[i] = v
+--             -- print values
+--             -- i: Type Mini     v: Comet
+--             -- i: CoinId        v: 3175
+--             -- i: EndTime       v: <int in seconds(I think)>
+--             -- i: Destroyed     v: false
+--             -- i: AreaId        v: Doodle Fairyland
+--             -- i: SpawnPosition v: <Position>
+--             -- i: Id unique id  v: (ex: 123abc-456def-789ghi)
+--             -- i: Speed         v: 30
+--             -- i: TimeCheck     v: <int in seconds(I think. probably current time?)>
+--             -- i: WorldId       v: Doodle
+--             -- i: EndPosition   v: <Position>
+            end
+            table.insert(cometsFound, comet)
         end
-        -- loop over v36 table
-        for i, v in pairs(cometData) do
-            comet[i] = v
-            -- print values
-            -- i: Type Mini     v: Comet
-            -- i: CoinId        v: 3175
-            -- i: EndTime       v: <int in seconds(I think)>
-            -- i: Destroyed     v: false
-            -- i: AreaId        v: Doodle Fairyland
-            -- i: SpawnPosition v: <Position>
-            -- i: Id unique id  v: (ex: 123abc-456def-789ghi)
-            -- i: Speed         v: 30
-            -- i: TimeCheck     v: <int in seconds(I think. probably current time?)>
-            -- i: WorldId       v: Doodle
-            -- i: EndPosition   v: <Position>
-            -- print(i, v)
-        end
-        table.insert(cometsFound, comet)
     end
     return cometsFound
 end
@@ -268,43 +256,48 @@ while true do
         serverJoinTime = tick()
     end
 
-    -- TODO: Refactor some of this loop to a function with early returns to get rid of nested if statements.
     task.wait(1)
     local comets = GetCometData()
-    if comets then
-        if #comets > 0 then
-            print("Found comet!")
-            for _, comet in ipairs(comets) do
-                if not comet["Destroyed"] then
-                    local cometArea = tostring(comet["AreaId"])
-                    print("Teleporting to comet: "  ..cometArea)
-                    -- print comet data
-                    for i, v in pairs(comet) do
-                        print(i, v)
-                    end
-                    -- teleport to the comet's area
-                    TeleportToArea(cometArea)
-                    -- get coin data for area
-                    local cometCoinObjects = GetComets(cometArea)
-                    for i = 1, #cometCoinObjects do
-                        print("Looking for comet 'coin' child in Coins workspace")
-                        if Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
-                            print("Found child coin, idx: " ..cometCoinObjects[i].index)
-                            local myPets = GetMyPets()
-                            for _, pet in pairs(myPets) do
-                                print("pet loop, idx: " .. tostring(_))
-                                FarmCoin(cometCoinObjects[i].index, pet.uid)
-                            end
-                            repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
-                        end
-                    end
-                else
-                    print("Comet already destroyed.")
-                end
+    if #comets == 0 then
+        print("No comet found. Changing servers.")
+        HopToNewServer()
+        return
+    end
+
+    print("Found comet!")
+
+    for _, comet in ipairs(comets) do
+        if comet["Destroyed"] then
+            print("Comet already destroyed.")
+            continue
+        end
+
+        local cometArea = tostring(comet["AreaId"])
+        print("Teleporting to comet: " .. cometArea)
+
+        -- print comet data
+        for i, v in pairs(comet) do
+            print(i, v)
+        end
+
+        -- teleport to the comet's area
+        TeleportToArea(cometArea)
+
+        -- get coin data for area
+        local cometCoinObjects = GetComets(cometArea)
+        for i = 1, #cometCoinObjects do
+            if not _coins:FindFirstChild(cometCoinObjects[i].index) then
+                continue
             end
-        else
-            print("No comet found. Changing servers.")
-            HopToNewServer()
+
+            print("Found child coin, idx: " .. cometCoinObjects[i].index)
+
+            local myPets = GetMyPets()
+            for _, pet in pairs(myPets) do
+                print("pet loop, idx: " .. tostring(_))
+                FarmCoin(cometCoinObjects[i].index, pet.uid)
+            end
+            repeat task.wait() until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
         end
     end
 end
