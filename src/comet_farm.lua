@@ -104,10 +104,10 @@ function GetCometData()
         -- Add comet to table
         print("v35: ", tostring(cometID))
         print("v36: ", tostring(cometData))
-        -- skip if AreaId == Mystic Mine (Need Pet Overlord rank to unlock...)
-        -- if cometData.AreaId == "Mystic Mine" then
-        --     return {}
-        -- end
+        -- skip if AreaId == Mystic Mine (Need Pet Overlord rank and lose 1 huge pet to unlock!)
+        if cometData.AreaId == "Mystic Mine" then
+            return {}
+        end
         -- loop over v36 table
         for i, v in pairs(cometData) do
             comet[i] = v
@@ -268,6 +268,7 @@ while true do
         serverJoinTime = tick()
     end
 
+    -- TODO: Refactor some of this loop to a function with early returns to get rid of nested if statements.
     task.wait(1)
     local comets = GetCometData()
     if comets then
