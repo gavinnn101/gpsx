@@ -226,78 +226,82 @@ function AutoCollectFreeGifts()
     end)
 end
 
--- Unlock teleports so we can get to the comets
-UnlockTeleports()
--- auto collect loot
-AutoCollectLootBags()
-AutoCollectOrbs()
--- Auto triple damage to break comets faster
-AutoTripleDamage()
--- Auto triple coins (not sure if triple coins helps with comets tbh but just in case.)
-AutoTripleCoins()
--- Auto collect free gifts (may as well try for huge cupcake.)
--- Might want to turn off in some scenarios if you want to collect the gifts in a certain area for all the coins you get in the last 2.
-AutoCollectFreeGifts()
+function main()
+    -- Unlock teleports so we can get to the comets
+    UnlockTeleports()
+    -- auto collect loot
+    AutoCollectLootBags()
+    AutoCollectOrbs()
+    -- Auto triple damage to break comets faster
+    AutoTripleDamage()
+    -- Auto triple coins (not sure if triple coins helps with comets tbh but just in case.)
+    AutoTripleCoins()
+    -- Auto collect free gifts (may as well try for huge cupcake.)
+    -- Might want to turn off in some scenarios if you want to collect the gifts in a certain area for all the coins you get in the last 2.
+    AutoCollectFreeGifts()
 
-local serverTimeout = 200 -- Set the timeout duration in seconds
-local serverJoinTime = tick()
+    local serverTimeout = 200 -- Set the timeout duration in seconds
+    local serverJoinTime = tick()
 
-while true do
-    -- https://v3rmillion.net/showthread.php?tid=1119874
-    if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
-        print("Detected error prompt. Trying to join new game")
-        HopToNewServer()
-    end
-
-    -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.
-    if tick() - serverJoinTime >= serverTimeout then
-        print("Timeout reached. Hopping to a new server.")
-        HopToNewServer()
-        serverJoinTime = tick()
-    end
-
-    task.wait(1)
-    local comets = GetCometData()
-    if #comets == 0 then
-        print("No comet found. Changing servers.")
-        HopToNewServer()
-        return
-    end
-
-    print("Found comet!")
-
-    for _, comet in ipairs(comets) do
-        if comet["Destroyed"] then
-            print("Comet already destroyed.")
-            continue
+    while true do
+        -- https://v3rmillion.net/showthread.php?tid=1119874
+        if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
+            print("Detected error prompt. Trying to join new game")
+            HopToNewServer()
         end
 
-        local cometArea = tostring(comet["AreaId"])
-        print("Teleporting to comet: " .. cometArea)
-
-        -- print comet data
-        for i, v in pairs(comet) do
-            print(i, v)
+        -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.
+        if tick() - serverJoinTime >= serverTimeout then
+            print("Timeout reached. Hopping to a new server.")
+            HopToNewServer()
+            serverJoinTime = tick()
         end
 
-        -- teleport to the comet's area
-        TeleportToArea(cometArea)
+        task.wait(1)
+        local comets = GetCometData()
+        if #comets == 0 then
+            print("No comet found. Changing servers.")
+            HopToNewServer()
+            return
+        end
 
-        -- get coin data for area
-        local cometCoinObjects = GetComets(cometArea)
-        for i = 1, #cometCoinObjects do
-            if not _coins:FindFirstChild(cometCoinObjects[i].index) then
+        print("Found comet!")
+
+        for _, comet in ipairs(comets) do
+            if comet["Destroyed"] then
+                print("Comet already destroyed.")
                 continue
             end
 
-            print("Found child coin, idx: " .. cometCoinObjects[i].index)
+            local cometArea = tostring(comet["AreaId"])
+            print("Teleporting to comet: " .. cometArea)
 
-            local myPets = GetMyPets()
-            for _, pet in pairs(myPets) do
-                print("pet loop, idx: " .. tostring(_))
-                FarmCoin(cometCoinObjects[i].index, pet.uid)
+            -- print comet data
+            for i, v in pairs(comet) do
+                print(i, v)
             end
-            repeat task.wait() until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
+
+            -- teleport to the comet's area
+            TeleportToArea(cometArea)
+
+            -- get coin data for area
+            local cometCoinObjects = GetComets(cometArea)
+            for i = 1, #cometCoinObjects do
+                if not _coins:FindFirstChild(cometCoinObjects[i].index) then
+                    continue
+                end
+
+                print("Found child coin, idx: " .. cometCoinObjects[i].index)
+
+                local myPets = GetMyPets()
+                for _, pet in pairs(myPets) do
+                    print("pet loop, idx: " .. tostring(_))
+                    FarmCoin(cometCoinObjects[i].index, pet.uid)
+                end
+                repeat task.wait() until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
+            end
         end
     end
 end
+
+main()
