@@ -1,5 +1,10 @@
 ---@diagnostic disable: undefined-global
 
+-- Wait for game to load
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
 local Util = {}
 
 local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
@@ -156,10 +161,9 @@ function Util.GetAreaBeforePipe(areaString)
     return splitString[1]:gsub("^%s*(.-)%s*$", "%1") -- Remove leading and trailing spaces
 end
 
-
 function Util.GetMyPets()
     return Lib.PetCmds.GetEquipped()
- end
+end
 
 --returns all coins within the given area (area must be a table of conent)
 function Util.GetCoins(area)
@@ -258,21 +262,43 @@ function Util.AutoFarm()
     end
 end
 
-function Util.AutoCometFarm()
-    if getgenv().Toggles.AutoCometFarmEnabledToggle.Value then
-        print("Auto comet farm enabled!")
+-- Similar to GetCoins but for comets
+function Util.GetComets(area)
+    local returntable = {}
+    local listCoins = Invoke("Get Coins")
+
+    for i,v in pairs(listCoins) do
+        local isComet = false
+        for ie, ve in pairs(v) do
+            if ie == "n" then
+                if ve:match("Comet") then
+                    isComet = true
+                    break
+                end
+            end
+        end
+
+        if isComet and area == v.a then
+            local coin = v
+            coin["index"] = i
+            table.insert(returntable, coin)
+        end
     end
+    return returntable
 end
 
 function Util.HopToNewServer()
     local Servers = game.HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
     for i,v in pairs(Servers.data) do
       if v.playing ~= v.maxPlayers then
-          game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, v.id)
+        print("teleporting to server: ", v.id)
+        game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, v.id)
+        repeat task.wait() until game.JobId == v.id and game:IsLoaded()
       end
     end
 end
 
+-- Find comets in the server
 function Util.GetCometData()
     local cometsFound = {}
     local cometData, _ = Invoke("Comets: Get Data")
@@ -284,7 +310,7 @@ function Util.GetCometData()
     print("v33: ", tostring(v33))
     -- v34: nil
     print("v34: ", tostring(v34))
-    
+
     local cometID, cometData = v32(v33, v34);
     if cometID then
         local comet = {}
@@ -311,6 +337,62 @@ function Util.GetCometData()
         table.insert(cometsFound, comet)
     end
     return cometsFound
+end
+
+function Util.TeleportToArea(area)
+    task.spawn(function()
+        task.wait(0.1)
+        set_thread_identity(2)
+        tp.Teleport(area)
+    end)
+end
+
+function Util.AutoCometFarm()
+    if getgenv().Toggles.AutoCometFarmEnabledToggle.Value then
+        print("Auto comet farm enabled!")
+        task.spawn(function()
+           while getgenv().Toggles.AutoCometFarmEnabledToggle.Value do
+            local comets = Util.GetCometData()
+            if comets then
+                if #comets > 0 then
+                    print("Found comet!")
+                    for _, comet in ipairs(comets) do
+                        if not comet["Destroyed"] then
+                            local cometArea = tostring(comet["AreaId"])
+                            print("Teleporting to comet: "  ..cometArea)
+                            -- print comet data
+                            for i, v in pairs(comet) do
+                                print(i, v)
+                            end
+                            -- teleport to the comet's area
+                            Util.TeleportToArea(cometArea)
+                            -- get coin data for area
+                            local cometCoinObjects = Util.GetComets(cometArea)
+                            local myPets = Util.GetMyPets()
+                            for i = 1, #cometCoinObjects do
+                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
+                                    print("Found child coin, idx: " ..cometCoinObjects[i].index)
+                                    for _, pet in pairs(myPets) do
+                                        print("pet loop, idx: " .. tostring(_))
+                                        task.spawn(function()
+                                            Util.FarmCoin(cometCoinObjects[i].index, pet.uid)
+                                        end)
+                                    end
+                                end
+                                repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index)
+                            end
+                        else
+                            print("Comet already destroyed.")
+                        end
+                    end
+                else
+                    print("No comet found.")
+                    Util.HopToNewServer()
+                end
+            end
+           end
+        end)
+    end
 end
 
 -- Returns the CFrame of the Egg Dispenser
@@ -358,10 +440,9 @@ function Util.AutoHatch()
             local chosenEgg = eggsData[chosenEggName]
             local chosenEggArea = chosenEgg.area
             -- Teleporting to world if needed
-            set_thread_identity(2)
             print("Teleporting to: " .. chosenEggArea)
-            tp.Teleport(chosenEggArea)
-            task.wait(10)
+            Util.TeleportToArea(chosenEggArea)
+            task.wait(5)
             print("Moving character to egg dispenser: " .. chosenEggArea)
             Util.TeleportToEggDispenser(chosenEggArea)
             while getgenv().Toggles.AutoHatchEnabledToggle.Value do
@@ -592,8 +673,10 @@ function Util.UnlockGamepasses()
         if getgenv().Toggles.UnlockGamepassesToggle then
             Lib.Gamepasses.Owns = function() return true end
             local teleportScript = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
-            teleportScript.UpdateAreas()
-            teleportScript.UpdateBottom()
+            if teleportScript.UpdateAreas then
+                teleportScript.UpdateAreas()
+                teleportScript.UpdateBottom()
+            end
         else
             Lib.Gamepasses.Owns = function(p1, p2)
                 if not p2 then
@@ -717,6 +800,199 @@ function Util.SetGraphicsRendering()
         Util.notify("Graphics rendering enabled")
         RunService:Set3dRenderingEnabled(true)
     end
+end
+
+-- Save console to log file
+function Util.SaveConsoleToLog()
+    local logs = game.CoreGui.DevConsoleMaster.DevConsoleWindow.DevConsoleUI.MainView.ClientLog
+    local filename = 'log.txt'
+    local res = ''
+    task.spawn(function()
+        if logs then
+            for i,v in next, logs:GetChildren() do
+                task.wait(0.1)
+                if v:FindFirstChild'msg' then
+                    res = res .. v.msg.Text .. '\n'
+                end
+            end
+
+            local success, errorMsg = pcall(function()
+                -- Check if the file exists
+                if isfile(filename) then
+                    -- Append to the file if it exists
+                    appendfile(filename, res)
+                else
+                    -- Write to the file if it doesn't exist
+                    writefile(filename, res)
+                end
+            end)
+
+            if success then
+                print("Successfully saved log to: ", filename)
+            else
+                print("Error occurred while writing to or appending the file: ", errorMsg)
+            end
+        end
+    end)
+end
+
+function Util.GetBankName(ownerID)
+    local Players = game:GetService("Players")
+    local name = Players:GetNameFromUserIdAsync(ownerID)
+    return name
+end
+
+function Util.GetBankNames()
+    local myBanks = Invoke("Get My Banks")
+    local bankNames = {}
+    for i,v in pairs(myBanks) do
+        local ownerName = Util.GetBankName(v.Owner)
+        table.insert(bankNames, ownerName)
+    end
+    return bankNames
+end
+
+function Util.DepositFiftyPets(bankOwnerName)
+    local myBanks = Invoke("Get My Banks")
+    for i,v in pairs(myBanks) do
+        local ownerName = Util.GetBankName(v.Owner)
+        if ownerName == bankOwnerName then
+            local bankID = v.BUID
+            local petsToDeposit = {}
+            local pets = Lib.Save.Get().Pets
+
+            print("Found matching bank with name: " ..ownerName .." and BUID: " ..bankID)
+
+            for i2,v2 in pairs(pets) do
+                if i2 < 51 then
+                    table.insert(petsToDeposit, v2.uid)
+                else
+                    break
+                end
+            end
+            -- Need to have at least one pet in our inventory.
+            table.remove(petsToDeposit, #petsToDeposit)
+
+            print("Depositing " ..tostring(#petsToDeposit) .." pets into bank owned by " ..ownerName)
+            Invoke("Bank Deposit", bankID, petsToDeposit, 0)
+            break
+        end
+    end
+end
+
+function Util.WithdrawFiftyPets(bankOwnerName)
+    local myBanks = Invoke("Get My Banks")
+    for i,v in pairs(myBanks) do
+        local ownerName = Util.GetBankName(v.Owner)
+        if ownerName == bankOwnerName then
+            local petsToWithdraw = {}
+            local bankID = v.BUID
+            local bank = Invoke("Get Bank", bankID)
+            local bankPets = bank["Storage"]["Pets"]
+
+            print("Found matching bank with name: " ..ownerName .." and BUID: " ..bankID)
+
+            for i2,v2 in pairs(bankPets) do
+                if i2 < 51 then
+                    table.insert(petsToWithdraw, v2.uid)
+                else
+                    break
+                end
+            end
+
+            print("Withdrawing " ..tostring(#petsToWithdraw) .." pets from bank owned by " ..ownerName)
+            Invoke("Bank Withdraw", bankID, petsToWithdraw, 0)
+            break
+        end
+    end
+end
+
+-- Get pet's type (basic, gold, rainbow, dark matter)
+function Util.GetFullPetName(petData, petName)
+    local fullName = petName
+    pcall(function()
+        if petData.g then fullName = "Golden " .. fullName end
+    end)
+    pcall(function()
+        if petData.r then fullName = "Rainbow " .. fullName end
+    end)
+    pcall(function()
+        if petData.dm then fullName = "Dark Matter " .. fullName end
+    end)
+    return fullName
+end
+
+-- Can map a pet id to pet data held in ReplicatedStorage.__DIRECTORY.Pets. Mostly used for pet rarity.
+function Util.BuildPetDataLookupTable()
+    print("Building pet data lookup table")
+    local petLookupTable = {}
+    local pets = game:GetService("ReplicatedStorage")["__DIRECTORY"].Pets:GetChildren()
+
+    for _, pet in pairs(pets) do
+        local petID = string.match(pet.Name, "%d+")
+        for _, child in pairs(pet:GetChildren()) do
+            if child:IsA("ModuleScript") then
+                if not petLookupTable[petID] then
+                    petLookupTable[petID] = require(child)
+                end
+                break
+            end
+        end
+    end
+    return petLookupTable
+end
+
+-- Deletes all duplicate pets in inventory.
+function Util.DeleteDuplicatePets(petLookupTable)
+    local uniquePets = {}
+    local petsToDelete = {}
+    local allPets = Lib.Save.Get().Pets
+
+    if not petLookupTable then
+        print("We weren't provided a lookup table. building a new one.")
+        petLookupTable = Util.BuildPetDataLookupTable()
+    end
+
+    for _, pet in pairs(allPets) do
+        task.wait(0.1)
+        local petID = pet["id"]
+        local petData = petLookupTable[petID]
+        local petName = petData.name
+        local fullPetName = Util.GetFullPetName(pet, petName)
+
+        -- print("Checking pet: " .. fullPetName)
+
+        if uniquePets[fullPetName] then
+            -- This pet is a duplicate, mark it for deletion
+            print("Adding duplicate pet to deletion table: " .. fullPetName)
+            table.insert(petsToDelete, pet.uid)
+        else
+            -- This pet is unique, add it to the uniquePets table
+            uniquePets[fullPetName] = true
+        end
+    end
+
+    -- Now delete all the duplicate pets
+    local duplicatePetCount = #petsToDelete
+    if duplicatePetCount > 0 then
+        print("Deleting " ..duplicatePetCount .." duplicate pets")
+        Invoke("Delete Several Pets", petsToDelete)
+    end
+end
+
+-- Delete pets in inventory if it's a duplicate
+function Util.AutoDeleteDuplicatePets(lookupTable)
+    task.spawn(function()
+        if getgenv().Toggles.AutoDeleteDuplicatePetsToggle.Value then
+            Util.notify("Deleting duplicate pets enabled")
+            while getgenv().Toggles.AutoDeleteDuplicatePetsToggle.Value do
+                task.wait(1)
+                Util.DeleteDuplicatePets(lookupTable)
+            end
+        else
+            Util.notify("Auto delete duplicate pets disabled")
+        end
+    end)
 end
 
 return Util

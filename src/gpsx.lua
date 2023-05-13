@@ -81,6 +81,16 @@ function loadScript(arg)
         print("Using auto hatch egg choice: ", getgenv().Options.AutoHatchEggChoiceDropdown.Value)
     end)
 
+    -- AutoDeleteDuplicatePetsToggle
+    getgenv().Toggles.AutoDeleteDuplicatePetsToggle:OnChanged(function()
+        print("Auto Delete Duplicate Pets: ", getgenv().Toggles.AutoDeleteDuplicatePetsToggle.Value)
+        local lookupTable = {}
+        if getgenv().Toggles.AutoDeleteDuplicatePetsToggle.Value then
+            lookupTable = Util.BuildPetDataLookupTable()
+        end
+        Util.AutoDeleteDuplicatePets(lookupTable)
+    end)
+
     -- UnlockGamepassesToggle
     getgenv().Toggles.UnlockGamepassesToggle:OnChanged(function()
         print("Unlock Gamepasses: ", getgenv().Toggles.UnlockGamepassesToggle.Value)

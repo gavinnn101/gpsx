@@ -120,6 +120,16 @@ function createGUI(group, areas)
         Tooltip = "Enable octuple hatch gamepass (Must own.)",
     })
 
+    -- Auto delete pets groupbox
+    local AutoDeletePetsGroupBox = Tabs["Auto Hatch"]:AddRightGroupbox("Auto Delete Pets")
+
+    -- Auto delete duplicate pets toggle
+    AutoDeletePetsGroupBox:AddToggle("AutoDeleteDuplicatePetsToggle", {
+        Text = "Auto Delete Duplicate Pets",
+        Default = false,
+        Tooltip = "Turn on to auto delete duplicate pets in inventory.",
+    })
+
     -- Auto hatch egg choice dropdown
     local eggData = Util.GetEggData()
     local eggNameList = Util.GetEggNamesList(eggData)
@@ -167,7 +177,10 @@ function createGUI(group, areas)
     -- Friend all players button
     MiscGroupBox:AddButton("Friend all players", function() Util.FriendAllPlayers() end)
 
-    -- Misc group box right
+    -- Save console to log file button
+    MiscGroupBox:AddButton("Save console to log file", function() Util.SaveConsoleToLog() end)
+
+    -- Auto Boosts group box right
     local AutoBoostGroupBox = Tabs["Misc"]:AddRightGroupbox("Auto Boosts")
 
     -- Auto Triple Coins toggle
@@ -238,6 +251,24 @@ function createGUI(group, areas)
         Default = false,
         Tooltip = "Turn on to disable graphics rendering.",
     })
+
+    -- Bank functions group box
+    local BankFunctionsGroupBox = Tabs["Misc"]:AddRightGroupbox("Bank Functions")
+
+    -- Bank name dropdown
+    BankFunctionsGroupBox:AddDropdown("BankNameDropdown", {
+        Values = Util.GetBankNames(),
+        Default = game.Players.LocalPlayer.Name,
+        Multi = false,
+        Text = "Bank Name",
+        Tooltip = "Name of bank to perform bank functions on.",
+    })
+
+    -- Deposit 50 pets button
+    BankFunctionsGroupBox:AddButton("Deposit 50 pets", function() Util.DepositFiftyPets(getgenv().Options.BankNameDropdown.Value) end)
+
+    -- Withdraw 50 pets button
+    BankFunctionsGroupBox:AddButton("Withdraw 50 pets", function() Util.WithdrawFiftyPets(getgenv().Options.BankNameDropdown.Value) end)
 
     -- Function to run onUnload
     Library:OnUnload(function()
