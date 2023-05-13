@@ -65,8 +65,8 @@ function createGUI(group, areas)
     -- Auto farm type dropdown
     AutoFarmGroupBox:AddDropdown('FarmTypeDropdown', {
         Values = {"Normal", "Nearest", "Multi Target", "Highest Value"},
-        Default = "Normal", -- number index of the value / string
-        Multi = false, -- true / false, allows multiple choices to be selected
+        Default = "Normal",
+        Multi = false,
         Text = 'Auto Farm Type',
         Tooltip = 'Type of auto farm to use.',
     })
@@ -74,10 +74,28 @@ function createGUI(group, areas)
     -- Auto farm area dropdown
     AutoFarmGroupBox:AddDropdown("FarmAreaDropdown", {
         Values = areas,
-        Default = "Town", -- number index of the value / string
-        Multi = false, -- true / false, allows multiple choices to be selected
+        Default = "Town",
+        Multi = false,
         Text = "Auto Farm Area",
         Tooltip = "Area to auto farm in.",
+    })
+
+    -- Coin stat track groupbox
+    local CoinStatTrackGroupBox = Tabs["Auto Farm"]:AddRightGroupbox("Coin Stat Track")
+    -- Stat Track Coin type dropdown
+    CoinStatTrackGroupBox:AddDropdown("StatTrackCoinTypeDropdown", {
+        Values = {"Coins", "Diamonds", "Fantasy Coins", "Tech Coins", "Rainbow Coins", "Pixel Coins", "Cartoon Coins", "Lucky Coins"},
+        Default = "Coins",
+        Multi = false,
+        Text = "Coin Type",
+        Tooltip = "Type of coin to stat track.",
+    })
+
+    -- Enable coin stat track toggle
+    CoinStatTrackGroupBox:AddToggle("EnableCoinStatTrackToggle", {
+        Text = "Enable Coin Stat Track",
+        Default = false,
+        Tooltip = "Turn on to enable coin stat track.",
     })
 
     -- Auto comet farm groupbox
@@ -135,8 +153,8 @@ function createGUI(group, areas)
     local eggNameList = Util.GetEggNamesList(eggData)
     AutoHatchGroupBox:AddDropdown("AutoHatchEggChoiceDropdown", {
         Values = eggNameList,
-        Default = "Cafe Egg", -- number index of the value / string
-        Multi = false, -- true / false, allows multiple choices to be selected
+        Default = "Cafe Egg",
+        Multi = false,
         Text = "Auto Hatch Egg Choice",
         Tooltip = "Egg to auto hatch.",
     })

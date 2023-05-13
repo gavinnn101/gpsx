@@ -39,6 +39,12 @@ function loadScript(arg)
         Util.AutoCollectLootbags()
     end)
 
+    -- EnableCoinStatTrackToggle
+    getgenv().Toggles.EnableCoinStatTrackToggle:OnChanged(function()
+        print("Enable Coin Stat Track: ", getgenv().Toggles.EnableCoinStatTrackToggle.Value)
+        Util.EnableCoinStatTrack(getgenv().Options.StatTrackCoinTypeDropdown.Value)
+    end)
+
     -- FarmTypeDropdown
     getgenv().Options.FarmTypeDropdown:OnChanged(function()
         -- This is a boolean consumed by AutoFarm.

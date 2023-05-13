@@ -18,6 +18,7 @@ end
 local Client = require(game.ReplicatedStorage.Library.Client)
 local RunService = game:GetService("RunService")
 local tp = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+local menus = game.Players.LocalPlayer.PlayerGui.Main.Right
 
 -- Hooking the _check function to bypass the anticheat (Blunder) environment check.
 debug.setupvalue(Invoke, 1, function() return true end)
@@ -247,8 +248,11 @@ function Util.AutoFarm()
                                 CurrentFarmingPets[myPets[i%#myPets+1]] = nil
                             end)
                         end
+                        -- We get kicked if we farm to fast I think. trying to slow it down with this. task.wait(0.2) confirmed no kick.
+                        task.wait(0.15)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Highest Value" then
+                    -- Farm highest value coin
                     local coins = Util.GetCoins(getgenv().Options.FarmAreaDropdown.Value)
                     for _, pet in pairs(myPets) do
                         task.spawn(function() task.wait() Util.FarmCoin(coins[1].index, pet.uid) end)
@@ -777,6 +781,68 @@ function Util.AutoCollectLootbags()
         end)
     else
         Util.notify("Auto lootbags disabled")
+    end
+end
+
+function Util.GetCoinsAmount(coinName)
+    local coinAmount = string.gsub(menus[coinName].Amount.Text, ",", "")
+    print("Returning " ..coinName .." amount: ", coinAmount)
+    return coinAmount
+end
+
+function Util.EnableStatTrackMenus(coinName)
+    menus.UIListLayout.HorizontalAlignment = 2
+    local tempmaker = menus:WaitForChild(coinName):Clone()
+    tempmaker.Name = tostring(tempmaker.Name .. "2")
+    tempmaker.Parent = menus
+    tempmaker.Size = UDim2.new(0, 175, 0, 30)
+    tempmaker.LayoutOrder = tempmaker.LayoutOrder + 1
+    _G.MyTypes[coinName] = tempmaker
+end
+
+-- EnableCoinStatTrack
+function Util.EnableCoinStatTrack(coinName)
+    if getgenv().Toggles.EnableCoinStatTrackToggle.Value then
+        Util.notify("Stat tracking coin: " ..getgenv().Options.StatTrackCoinTypeDropdown.Value)
+        -- Initialize an empty queue data structure
+        local coinQueue = {}
+        _G.MyTypes = {}
+        local Commas = Lib.Functions.Commas
+        Util.EnableStatTrackMenus(coinName)
+        task.spawn(function()
+            while getgenv().Toggles.EnableCoinStatTrackToggle.Value do
+                -- Get starting coin amount
+                local previousCoins = Util.GetCoinsAmount(coinName)
+                print("Previous coins: ", previousCoins)
+
+                while true do
+                -- Get current coin amount
+                local currentCoins = Util.GetCoinsAmount(coinName)
+
+                -- Add the current coin amount to the end of the queue
+                table.insert(coinQueue, currentCoins - previousCoins)
+                previousCoins = currentCoins
+
+                -- If the queue has more than 60 elements, remove the oldest one
+                if #coinQueue > 60 then
+                    table.remove(coinQueue, 1)
+                end
+
+                -- Calculate and print the average coins gained per minute
+                local totalGain = 0
+                for i = 1, #coinQueue do
+                    totalGain = totalGain + coinQueue[i]
+                end
+                local averageGainPerMinute = totalGain / #coinQueue * 60
+                print("Estimated coins gained per minute: ", averageGainPerMinute)
+                _G.MyTypes[coinName].Amount.Text = tostring(Commas(averageGainPerMinute).." in 60s")
+                _G.MyTypes[coinName].Amount_odometerGUIFX.Text = tostring(Commas(averageGainPerMinute).." in 60s")
+
+                -- Wait for 1 second before the next iteration
+                task.wait(1)
+                end
+            end
+        end)
     end
 end
 
