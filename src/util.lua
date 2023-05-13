@@ -802,40 +802,6 @@ function Util.SetGraphicsRendering()
     end
 end
 
--- Save console to log file
-function Util.SaveConsoleToLog()
-    local logs = game.CoreGui.DevConsoleMaster.DevConsoleWindow.DevConsoleUI.MainView.ClientLog
-    local filename = 'log.txt'
-    local res = ''
-    task.spawn(function()
-        if logs then
-            for i,v in next, logs:GetChildren() do
-                task.wait(0.1)
-                if v:FindFirstChild'msg' then
-                    res = res .. v.msg.Text .. '\n'
-                end
-            end
-
-            local success, errorMsg = pcall(function()
-                -- Check if the file exists
-                if isfile(filename) then
-                    -- Append to the file if it exists
-                    appendfile(filename, res)
-                else
-                    -- Write to the file if it doesn't exist
-                    writefile(filename, res)
-                end
-            end)
-
-            if success then
-                print("Successfully saved log to: ", filename)
-            else
-                print("Error occurred while writing to or appending the file: ", errorMsg)
-            end
-        end
-    end)
-end
-
 function Util.GetBankName(ownerID)
     local Players = game:GetService("Players")
     local name = Players:GetNameFromUserIdAsync(ownerID)

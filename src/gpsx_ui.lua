@@ -177,9 +177,6 @@ function createGUI(group, areas)
     -- Friend all players button
     MiscGroupBox:AddButton("Friend all players", function() Util.FriendAllPlayers() end)
 
-    -- Save console to log file button
-    MiscGroupBox:AddButton("Save console to log file", function() Util.SaveConsoleToLog() end)
-
     -- Auto Boosts group box right
     local AutoBoostGroupBox = Tabs["Misc"]:AddRightGroupbox("Auto Boosts")
 
