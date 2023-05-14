@@ -976,6 +976,7 @@ function Util.UpgradePetsToGold(petLookupTable)
             -- Check if the counter for that pet is at 6
             if petsToUpgrade[fullPetName] == 6 then
                 Invoke("Use Golden Machine", petUIDs[fullPetName])
+                task.wait(1)
 
                 -- Reset the counter and the uid list for that pet
                 petsToUpgrade[fullPetName] = nil
