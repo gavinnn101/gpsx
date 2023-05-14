@@ -21,8 +21,13 @@ local tp = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.
 local menus = game.Players.LocalPlayer.PlayerGui.Main.Right
 
 -- Hooking the _check function to bypass the anticheat (Blunder) environment check.
-debug.setupvalue(Invoke, 1, function() return true end)
-debug.setupvalue(Fire, 1, function() return true end)
+-- debug.setupvalue(Invoke, 1, function() return true end)
+-- debug.setupvalue(Fire, 1, function() return true end)
+
+local old
+old = hookfunction(getupvalue(Fire, 1), function(...)
+ return true
+end)
 
 function Util.notify(msg)
     local Notify = getsenv(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Admin Commands"):WaitForChild("Admin Cmds Client")).AddNotification
@@ -978,12 +983,14 @@ function Util.IndexBankPets(bankOwnerName)
             for _, pet in pairs(bankPets) do
                 table.insert(tmpPets, pet.uid)
                 count = count + 1
+                -- Withdraw limit is 50 pets at a time but new accounts might not have 50 inventory slots.
                 if count >= 40 then
                     table.insert(petsToIndex, tmpPets)
                     tmpPets = {}
                     count = 0
                 end
             end
+            -- Add leftover pets that didn't hit 40.
             table.insert(petsToIndex, tmpPets)
             -- Index pets in petsToIndex tables we created.
             for _, pets in pairs(petsToIndex) do

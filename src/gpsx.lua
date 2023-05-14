@@ -14,7 +14,7 @@ function loadScript(arg)
     -- Variables
     local allAreas = Util.GetAreas()
     local areas = Util.GetAreaNames(allAreas)
-    local petLookupTable = Util.GetPetLookupTable()
+    local petLookupTable = Util.BuildPetDataLookupTable()
 
     -- Create GUI
     local createGUI = loadstring(readfile("gpsx/gpsx_ui.lua"))()
