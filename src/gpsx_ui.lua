@@ -1,6 +1,6 @@
 ---@diagnostic disable: undefined-global
 
-function createGUI(group, areas)
+function createGUI(group, areas, petLookupTable)
     -- Load util functions
     Util = loadstring(readfile("gpsx/util.lua"))()
 
@@ -153,7 +153,7 @@ function createGUI(group, areas)
     local eggNameList = Util.GetEggNamesList(eggData)
     AutoHatchGroupBox:AddDropdown("AutoHatchEggChoiceDropdown", {
         Values = eggNameList,
-        Default = "Cafe Egg",
+        Default = "Lucky Block World Egg",
         Multi = false,
         Text = "Auto Hatch Egg Choice",
         Tooltip = "Egg to auto hatch.",
@@ -289,10 +289,13 @@ function createGUI(group, areas)
     local PetUpgradeGroupBox = Tabs["Misc"]:AddRightGroupbox("Pet Upgrades")
 
     -- Upgrade pets to gold button
-    PetUpgradeGroupBox:AddButton("Upgrade pets to gold", function() Util.UpgradePetsToGold() end)
+    PetUpgradeGroupBox:AddButton("Upgrade pets to gold", function() Util.UpgradePetsToGold(petLookupTable) end)
 
     -- Upgrade pets to rainbow button
-    PetUpgradeGroupBox:AddButton("Upgrade pets to rainbow", function() Util.UpgradePetsToRainbow() end)
+    PetUpgradeGroupBox:AddButton("Upgrade pets to rainbow", function() Util.UpgradePetsToRainbow(petLookupTable) end)
+
+    -- Upgrade pets to dark matter button
+    PetUpgradeGroupBox:AddButton("Upgrade pets to dark matter", function() Util.UpgradePetsToDarkMatter(petLookupTable) end)
 
     -- Function to run onUnload
     Library:OnUnload(function()

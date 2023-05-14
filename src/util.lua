@@ -65,8 +65,10 @@ function Util.bypassAC()
     setreadonly(Blunder, false)
 
     local function OutputData(Message)
-       rconsoleprint("@@RED@@")
-       rconsoleprint(Message .. "\n")
+    --    rconsoleprint("@@RED@@")
+    --    rconsoleprint(Message .. "\n")
+        print("@@RED@@")
+        print(Message .. "\n")
     end
 
     Blunder.getAndClear = function(...)
@@ -184,8 +186,12 @@ end
 
 function Util.FarmCoin(CoinID, PetID)
     print("farming coin (FarmCoin)")
-    Invoke("Join Coin", CoinID, {PetID})
-    Fire("Farm Coin", CoinID, PetID)
+    local v86 = Invoke("Join Coin", CoinID, {PetID})
+    for v88, v89 in pairs(v86) do
+        Fire("Farm Coin", CoinID, v88);
+    end
+    -- Invoke("Join Coin", CoinID, {PetID})
+    -- Fire("Farm Coin", CoinID, PetID)
 end
 
 function Util.AutoFarm()
@@ -239,6 +245,7 @@ function Util.AutoFarm()
                     local Coins = Things.Coins
                     local Pets = Things.Pets
                     local numPets = #myPets
+                    local coinFarmTimeout = 4
                     for i = 1, #coins do
                         local petIndex = i % numPets + 1
                         if i % numPets == numPets - 1 then
@@ -250,7 +257,8 @@ function Util.AutoFarm()
                                 local currentCoin = coins[i].index
                                 CurrentFarmingPets[currentPet] = 'Farming'
                                 Util.FarmCoin(currentCoin, currentPet.uid)
-                                repeat task.wait() until not Coins:FindFirstChild(currentCoin) or #Pets:GetChildren() == 0
+                                local startTime = tick()
+                                repeat task.wait(0.1) until not Coins:FindFirstChild(currentCoin) or (tick() - startTime >= coinFarmTimeout)
                                 CurrentFarmingPets[currentPet] = nil
                             end)
                         end
@@ -460,7 +468,7 @@ function Util.AutoHatch()
             while getgenv().Toggles.AutoHatchEnabledToggle.Value do
                 Util.notify("Hatching egg: " .. chosenEggName)
                 Invoke("Buy Egg", chosenEggName, getgenv().Toggles.EnableTripleHatchToggle.Value, getgenv().Toggles.EnableOctupleHatchToggle.Value)
-                task.wait(1.5)
+                task.wait(0.5)
             end
         end)
     end
@@ -975,6 +983,7 @@ function Util.UpgradePetsToGold(petLookupTable)
             end
             -- Check if the counter for that pet is at 6
             if petsToUpgrade[fullPetName] == 6 then
+                print("Upgrading " ..fullPetName .." to gold.")
                 Invoke("Use Golden Machine", petUIDs[fullPetName])
                 task.wait(1)
 
@@ -1015,6 +1024,7 @@ function Util.UpgradePetsToRainbow(petLookupTable)
             end
             -- Check if the counter for that pet is at 6
             if petsToUpgrade[fullPetName] == 6 then
+                print("Upgrading " ..fullPetName .." to rainbow")
                 Invoke("Use Rainbow Machine", petUIDs[fullPetName])
                 task.wait(1)
 
@@ -1025,6 +1035,48 @@ function Util.UpgradePetsToRainbow(petLookupTable)
         end
     end
     print("Finished upgrading pets to rainbow.")
+end
+
+-- UpgradePetsToDarkMatter
+function Util.UpgradePetsToDarkMatter(petLookupTable)
+    Util.notify("Upgrading pets to dark matter")
+    if not petLookupTable then
+        print("We weren't provided a lookup table. building a new one.")
+        petLookupTable = Util.BuildPetDataLookupTable()
+    end
+    local pets = Lib.Save.Get().Pets
+    local petsToUpgrade = {}
+    local petUIDs = {} -- create a new table to store the pet's uids
+    for i,pet in pairs(pets) do
+        task.wait(0.1)
+        local petID = pet["id"]
+        local petData = petLookupTable[petID]
+        local petName = petData.name
+        local fullPetName = Util.GetFullPetName(pet, petName) -- This is what makes it check for golden, rainbow, dark matter, etc.
+        print(fullPetName)
+        -- Check that fullPetName contains "Rainbow"
+        if string.find(fullPetName, "Rainbow") then
+            -- Add 1 to counter for that pet name
+            if not petsToUpgrade[fullPetName] then
+                petsToUpgrade[fullPetName] = 1
+                petUIDs[fullPetName] = {pet.uid} -- store the pet's uid in a list
+            else
+                petsToUpgrade[fullPetName] = petsToUpgrade[fullPetName] + 1
+                table.insert(petUIDs[fullPetName], pet.uid) -- add the pet's uid to the list
+            end
+            -- Check if the counter for that pet is at 6
+            if petsToUpgrade[fullPetName] == 6 then
+                print("Upgrading " .. fullPetName .. " to dark matter.")
+                Invoke("Convert to Dark Matter", petUIDs[fullPetName])
+                task.wait(1)
+
+                -- Reset the counter and the uid list for that pet
+                petsToUpgrade[fullPetName] = nil
+                petUIDs[fullPetName] = nil
+            end
+        end
+    end
+    print("Finished upgrading pets to dark matter.")
 end
 
 -- Get pet's type (basic, gold, rainbow, dark matter)

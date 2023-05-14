@@ -14,10 +14,11 @@ function loadScript(arg)
     -- Variables
     local allAreas = Util.GetAreas()
     local areas = Util.GetAreaNames(allAreas)
+    local petLookupTable = Util.GetPetLookupTable()
 
     -- Create GUI
     local createGUI = loadstring(readfile("gpsx/gpsx_ui.lua"))()
-    local gui = createGUI(group, areas)
+    local gui = createGUI(group, areas, petLookupTable)
 
     Util.notify("Script loaded with settings: " .. group)
 
