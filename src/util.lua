@@ -955,6 +955,55 @@ function Util.WithdrawFiftyPets(bankOwnerName)
     end
 end
 
+-- Withdraw all pets from bank in sets of 40, wait 30 seconds for them to get indexed, then deposit them back into the bank.
+function Util.IndexBankPets(bankOwnerName)
+    local myBanks = Invoke("Get My Banks")
+    for i,v in pairs(myBanks) do
+        local ownerName = Util.GetBankName(v.Owner)
+        if ownerName == bankOwnerName then
+            local bankID = v.BUID
+            local bank = Invoke("Get Bank", bankID)
+            local bankPets = bank["Storage"]["Pets"]
+            local petsToIndex = {}
+
+            local totalBankPets = #bankPets
+            local petsIndexed = 0
+
+            print("Found matching bank with name: " ..ownerName .." and BUID: " ..bankID)
+            print("Total number of pets in bank: " ..totalBankPets)
+
+            -- Create tables of pets to index and put them in petsToIndex table.
+            local tmpPets = {}
+            local count = 0
+            for _, pet in pairs(bankPets) do
+                table.insert(tmpPets, pet.uid)
+                count = count + 1
+                if count >= 40 then
+                    table.insert(petsToIndex, tmpPets)
+                    tmpPets = {}
+                    count = 0
+                end
+            end
+            table.insert(petsToIndex, tmpPets)
+            -- Index pets in petsToIndex tables we created.
+            for _, pets in pairs(petsToIndex) do
+                local petsLength = #pets
+                Invoke("Bank Withdraw", bankID, pets, 0)
+                print("Withdrew " ..petsLength.. " pets. Waiting 30 seconds to index.")
+                task.wait(30)
+                Invoke("Bank Deposit", bankID, pets, 0)
+                print("Deposited pets back to bank.")
+                petsIndexed = petsIndexed + tonumber(#pets)
+                print("Pets indexed: " ..petsIndexed)
+            end
+            -- Finished indexing bank pets. Print stats.
+            print("Finished Indexing bank pets.")
+            print("Total pets processed: " ..petsIndexed)
+            break
+        end
+    end
+end
+
 -- UpgradePetsToGold
 function Util.UpgradePetsToGold(petLookupTable)
     Util.notify("Upgrading pets to gold")

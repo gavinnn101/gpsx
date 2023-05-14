@@ -285,6 +285,9 @@ function createGUI(group, areas, petLookupTable)
     -- Withdraw 50 pets button
     BankFunctionsGroupBox:AddButton("Withdraw 50 pets", function() Util.WithdrawFiftyPets(getgenv().Options.BankNameDropdown.Value) end)
 
+    -- Index bank pets button
+    BankFunctionsGroupBox:AddButton("Index bank pets", function() Util.IndexBankPets(getgenv().Options.BankNameDropdown.Value) end)
+
     -- Pet Upgrade group box
     local PetUpgradeGroupBox = Tabs["Misc"]:AddRightGroupbox("Pet Upgrades")
 
