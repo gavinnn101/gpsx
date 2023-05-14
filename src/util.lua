@@ -235,17 +235,23 @@ function Util.AutoFarm()
                     -- Multi target farm
                     print("looking for coins in: " .. getgenv().Options.FarmAreaDropdown.Value)
                     local coins = Util.GetCoins(getgenv().Options.FarmAreaDropdown.Value)
+                    local Things = game:GetService("Workspace")["__THINGS"]
+                    local Coins = Things.Coins
+                    local Pets = Things.Pets
+                    local numPets = #myPets
                     for i = 1, #coins do
-                        if i%#myPets == #myPets-1 then
+                        local petIndex = i % numPets + 1
+                        if i % numPets == numPets - 1 then
                             task.wait()
                         end
-                        if not CurrentFarmingPets[myPets[i%#myPets+1]] or CurrentFarmingPets[myPets[i%#myPets+1]] == nil then
-                            task.wait(0.1)
+                        if not CurrentFarmingPets[myPets[petIndex]] then
                             task.spawn(function()
-                                CurrentFarmingPets[myPets[i%#myPets+1]] = 'Farming'
-                                Util.FarmCoin(coins[i].index, myPets[i%#myPets+1].uid)
-                                repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) or #game:GetService("Workspace")["__THINGS"].Pets:GetChildren() == 0
-                                CurrentFarmingPets[myPets[i%#myPets+1]] = nil
+                                local currentPet = myPets[petIndex]
+                                local currentCoin = coins[i].index
+                                CurrentFarmingPets[currentPet] = 'Farming'
+                                Util.FarmCoin(currentCoin, currentPet.uid)
+                                repeat task.wait() until not Coins:FindFirstChild(currentCoin) or #Pets:GetChildren() == 0
+                                CurrentFarmingPets[currentPet] = nil
                             end)
                         end
                         -- We get kicked if we farm to fast I think. trying to slow it down with this. task.wait(0.2) confirmed no kick.
@@ -432,6 +438,7 @@ function Util.TeleportToEggDispenser(eggAreaName)
     local teleportLocation = eggDispenserLocation + offset
     -- print("Teleporting to egg dispenser location: " .. tostring(teleportLocation))
     game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = teleportLocation
+    task.wait(2)
 end
 
 function Util.AutoHatch()
@@ -443,6 +450,7 @@ function Util.AutoHatch()
             local chosenEggName = tostring(getgenv().Options.AutoHatchEggChoiceDropdown.Value)
             local chosenEgg = eggsData[chosenEggName]
             local chosenEggArea = chosenEgg.area
+            local allPets = Lib.Save.Get().Pets
             -- Teleporting to world if needed
             print("Teleporting to: " .. chosenEggArea)
             Util.TeleportToArea(chosenEggArea)
@@ -990,7 +998,7 @@ function Util.DeleteDuplicatePets(petLookupTable)
         local petID = pet["id"]
         local petData = petLookupTable[petID]
         local petName = petData.name
-        local fullPetName = Util.GetFullPetName(pet, petName)
+        local fullPetName = Util.GetFullPetName(pet, petName) -- This is what makes it check for golden, rainbow, dark matter, etc.
 
         -- print("Checking pet: " .. fullPetName)
 
