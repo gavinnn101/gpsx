@@ -268,7 +268,7 @@ function createGUI(group, areas)
     })
 
     -- Bank functions group box
-    local BankFunctionsGroupBox = Tabs["Misc"]:AddRightGroupbox("Bank Functions")
+    local BankFunctionsGroupBox = Tabs["Misc"]:AddLeftGroupbox("Bank Functions")
 
     -- Bank name dropdown
     BankFunctionsGroupBox:AddDropdown("BankNameDropdown", {
@@ -284,6 +284,12 @@ function createGUI(group, areas)
 
     -- Withdraw 50 pets button
     BankFunctionsGroupBox:AddButton("Withdraw 50 pets", function() Util.WithdrawFiftyPets(getgenv().Options.BankNameDropdown.Value) end)
+
+    -- Pet Upgrade group box
+    local PetUpgradeGroupBox = Tabs["Misc"]:AddRightGroupbox("Pet Upgrades")
+
+    -- Upgrade pets to gold button
+    PetUpgradeGroupBox:AddButton("Upgrade pets to gold", function() Util.UpgradePetsToGold() end)
 
     -- Function to run onUnload
     Library:OnUnload(function()

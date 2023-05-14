@@ -947,6 +947,52 @@ function Util.WithdrawFiftyPets(bankOwnerName)
     end
 end
 
+-- UpgradePetsToGold
+function Util.UpgradePetsToGold(petLookupTable)
+    Util.notify("Upgrading pets to gold")
+    if not petLookupTable then
+        print("We weren't provided a lookup table. building a new one.")
+        petLookupTable = Util.BuildPetDataLookupTable()
+    end
+    local pets = Lib.Save.Get().Pets
+    local petsToUpgrade = {}
+    local petUIDs = {} -- create a new table to store the pet's uids
+    for i,pet in pairs(pets) do
+        task.wait(0.1)
+        local petID = pet["id"]
+        local petData = petLookupTable[petID]
+        local petName = petData.name
+        local fullPetName = Util.GetFullPetName(pet, petName) -- This is what makes it check for golden, rainbow, dark matter, etc.
+        -- Check that fullPetName doesn't contain "Golden", "Rainbow", or "Dark Matter"
+        if not string.find(fullPetName, "Golden") and not string.find(fullPetName, "Rainbow") and not string.find(fullPetName, "Dark Matter") then
+            -- Add 1 to counter for that pet name
+            if not petsToUpgrade[fullPetName] then
+                petsToUpgrade[fullPetName] = 1
+                petUIDs[fullPetName] = {pet.uid} -- store the pet's uid in a list
+            else
+                petsToUpgrade[fullPetName] = petsToUpgrade[fullPetName] + 1
+                table.insert(petUIDs[fullPetName], pet.uid) -- add the pet's uid to the list
+            end
+            -- Check if the counter for that pet is at 6
+            if petsToUpgrade[fullPetName] == 6 then
+                Invoke("Use Golden Machine", petUIDs[fullPetName])
+
+                -- Reset the counter and the uid list for that pet
+                petsToUpgrade[fullPetName] = nil
+                petUIDs[fullPetName] = nil
+            end
+        end
+    end
+
+    -- Handle any remaining pets (less than 6 of the same type) at the end
+    for petName, count in pairs(petsToUpgrade) do
+        if count > 0 then
+            -- Invoke your function here with the remaining pet uids
+            UpgradeToGold(petUIDs[petName])
+        end
+    end
+end
+
 -- Get pet's type (basic, gold, rainbow, dark matter)
 function Util.GetFullPetName(petData, petName)
     local fullName = petName
