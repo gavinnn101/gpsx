@@ -291,6 +291,9 @@ function createGUI(group, areas)
     -- Upgrade pets to gold button
     PetUpgradeGroupBox:AddButton("Upgrade pets to gold", function() Util.UpgradePetsToGold() end)
 
+    -- Upgrade pets to rainbow button
+    PetUpgradeGroupBox:AddButton("Upgrade pets to rainbow", function() Util.UpgradePetsToRainbow() end)
+
     -- Function to run onUnload
     Library:OnUnload(function()
         print("GPSX Unloaded!")
