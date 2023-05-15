@@ -905,6 +905,12 @@ function Util.GetBankNames()
     return bankNames
 end
 
+-- Refresh bank list button
+function Util.RefreshBankNames()
+    local bankNames = Util.GetBankNames()
+    getgenv().Options.BankNameDropdown:SetValues(bankNames)
+end
+
 function Util.DepositFiftyPets(bankOwnerName)
     local myBanks = Invoke("Get My Banks")
     for i,v in pairs(myBanks) do

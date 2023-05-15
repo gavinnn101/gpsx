@@ -279,6 +279,9 @@ function createGUI(group, areas, petLookupTable)
         Tooltip = "Name of bank to perform bank functions on.",
     })
 
+    -- Refresh bank names button
+    BankFunctionsGroupBox:AddButton("Refresh banks", function() Util.RefreshBankNames() end)
+
     -- Deposit 50 pets button
     BankFunctionsGroupBox:AddButton("Deposit 50 pets", function() Util.DepositFiftyPets(getgenv().Options.BankNameDropdown.Value) end)
 
