@@ -1,43 +1,100 @@
-function HopToNewServer(maxRetries, retryDelay)
-    local HttpService = game:GetService("HttpService")
-    local TeleportService = game:GetService("TeleportService")
-    maxRetries = maxRetries or 5  -- Default to 5 retries if not provided
-    retryDelay = retryDelay or 5  -- Default to 5 seconds delay if not provided
+---@diagnostic disable: undefined-global
 
-    local success, errorMsg
-    local retryCount = 0
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
-    while not success and retryCount < maxRetries do
-        local _success, Servers = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
-        end)
+local foldername = "gpsx"
+local filename = foldername .. "/" .. "comet_farm.json"
+if not isfolder(foldername) then
+    makefolder(foldername)
+end
 
-        for _, v in ipairs(Servers.data) do
-            -- Avoid servers that are 11/12 in case someone else joins when we join.
-            if tonumber(v.playing) < (tonumber(v.maxPlayers) - 1) then
-                print("Attempting to teleport to server: ", v.id)
-                success, errorMsg = pcall(function()
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-                    -- I think commenting this out will potentially fix getting stuck in a server when we hit a teleport error.
-                    -- repeat RunService.RenderStepped:Wait() until game.JobId == v.id and game:IsLoaded()
+function CacheServerList()
+    task.spawn(function()
+        while true do
+            local file = HttpService:JSONDecode(readfile(filename))
+            if not file or (tick() - file.serverListCacheTime) > 60 then
+                canServerHop = false
+                print("Getting new server list.")
+                local _success, servers = pcall(function()
+                    return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
                 end)
-
-                if success then
-                    print("Successfully teleported to server: ", v.id)
-                    break
-                else
-                    print("Failed to teleport to server: ", v.id, " Error: ", errorMsg)
-                    retryCount = retryCount + 1
-                    task.wait(retryDelay)
-                end
+                file.serverList = servers
+                file.serverListCacheTime = tick()
+                -- Reset the visited servers when getting a new server list.
+                file.visitedServers = {}
+                writefile(filename, HttpService:JSONEncode(file))
+                print("Wrote new server list to file.")
+                canServerHop = true
             end
+            task.wait(1)
         end
-    end
+    end)
+end
 
-    if retryCount >= maxRetries then
-        print("Exceeded maximum retries. Unable to teleport to a new server.")
+function HopToNewServer()
+    local file = HttpService:JSONDecode(readfile(filename))
+    for i,v in pairs(file.serverList.data) do
+      if v.playing ~= v.maxPlayers and not file.visitedServers[v.id] then
+        -- Add the server id to the visited servers.
+        file.visitedServers[v.id] = true
+        writefile(filename, HttpService:JSONEncode(file))
+        print("teleporting to server: ", v.id)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+        repeat task.wait() until game:IsLoaded()
+        return
+      end
     end
 end
+
+function StartSession()
+    local file
+    if isfile(filename) then
+        file = HttpService:JSONDecode(readfile(filename))
+        file.checkInTime = tick()
+        -- If the last check-in was over 5 minutes ago (300 seconds), start a new session.
+        if (file.checkInTime - file.sessionStartTime) > 300 then
+            file.sessionStartTime = file.checkInTime
+            -- Reset the cometsFound counter at the start of a new session.
+            file.cometsFound = 0
+            print("Starting new session.")
+        else
+            print("Continuing existing session.")
+        end
+    else
+        file = {
+            sessionStartTime = tick(),
+            checkInTime = tick(),
+            serverListCacheTime = 0,
+            serverList = {},
+            visitedServers = {},
+            cometsFound = 0,  -- Initialize the cometsFound counter.
+        }
+        print("Starting new session.")
+    end
+    writefile(filename, HttpService:JSONEncode(file))
+    CacheServerList()
+end
+
+TeleportService.TeleportInitFailed:Connect(function(player, resultEnum, msg)
+    if resultEnum == Enum.TeleportResult.Success then
+        print("Teleport success.")
+    elseif resultEnum == Enum.TeleportResult.IsTeleporting then
+        print("Teleport already in progress.")
+    elseif resultEnum == Enum.TeleportResult.GameFull then
+        print("Tried to join a full server. Hopping to a new server.")
+        HopToNewServer()
+    elseif resultEnum == Enum.TeleportResult.Failure or resultEnum == Enum.TeleportResult.GameNotFound or resultEnum == Enum.TeleportResult.GameEnded or resultEnum == Enum.TeleportResult.Flooded or resultEnum == Enum.TeleportResult.Unauthorized then
+        local fmt = string.format('server: teleport %s failed, resultEnum:%s, msg:%s',player.Name, tostring(resultEnum), msg)
+        print(fmt)
+        print("Teleport failed because of a server error Failure / GameNotFound / GameEnded / Flooded / Unauthorized. Hopping to a new server.")
+        HopToNewServer()
+    end
+end)
 
 -- Server hop if we get stuck in the load screen. This solves error code 279.
 local success, errorMsg = pcall(function()
@@ -47,6 +104,7 @@ local success, errorMsg = pcall(function()
         timer = timer - 1
     end
     if timer == 0 then
+        print("Timed out loading into server. Hopping to a new server.")
         HopToNewServer()
     end
 end)
@@ -56,27 +114,7 @@ if not success then
     HopToNewServer()
 end
 
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local RunService = game:GetService("RunService")
-
-local Network = require(ReplicatedStorage.Library.Client.Network)
-local Fire, Invoke = Network.Fire, Network.Invoke
-
-local tp = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
-
-local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
-while not Lib.Loaded do
-    RunService.Heartbeat:Wait()
-end
-
-local _coins = Workspace["__THINGS"].Coins
-
-debug.setupvalue(Invoke, 1, function() return true end)
-debug.setupvalue(Fire, 1, function() return true end)
+print("Game loaded")
 
 function GetComets(area)
     local cometsFound = {}
@@ -108,7 +146,9 @@ function GetCometData()
 
     for cometID, cometData in pairs(cometTable) do
         -- skip if AreaId == Mystic Mine (Need Pet Overlord rank and lose 1 huge pet to unlock!)
-        if cometData.AreaId ~= "Mystic Mine" then
+        -- Cyber Cavern requires account to be at least 7 days old.
+        -- Paradise Cave requires account to be at least 1 day old.
+        if cometData.AreaId ~= "Mystic Mine" and cometData.AreaId ~= "Cyber Cavern" and cometData.AreaId ~= "Paradise Cave" then
             local comet = {}
             -- loop over cometData table
             for i, v in pairs(cometData) do
@@ -240,7 +280,97 @@ function AutoCollectFreeGifts()
     end)
 end
 
+function ProcessComet(comet)
+    local cometArea = tostring(comet["AreaId"])
+    print("Teleporting to comet: " .. cometArea)
+
+    -- print comet data
+    for i, v in pairs(comet) do
+        print(i, v)
+    end
+
+    -- teleport to the comet's area
+    TeleportToArea(cometArea)
+
+    -- get coin data for area
+    local cometCoinObjects = GetComets(cometArea)
+    for i = 1, #cometCoinObjects do
+        if not _coins:FindFirstChild(cometCoinObjects[i].index) then
+            continue
+        end
+
+        print("Found child coin, idx: " .. cometCoinObjects[i].index)
+
+        local myPets = GetMyPets()
+        for _, pet in pairs(myPets) do
+            print("pet loop, idx: " .. tostring(_))
+            FarmCoin(cometCoinObjects[i].index, pet.uid)
+        end
+        repeat RunService.Heartbeat:Wait() until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
+        -- Increment the cometsFound counter and save to the file.
+        canServerHop = false
+        local file = HttpService:JSONDecode(readfile(filename))
+        file.cometsFound = file.cometsFound + 1
+        print("Comets found during session: " .. tostring(file.cometsFound))
+        writefile(filename, HttpService:JSONEncode(file))
+        canServerHop = true
+    end
+end
+
+function CheckServerTimeout()
+    local serverTimeout = 300 -- Set the timeout duration in seconds
+    local serverJoinTime = tick()
+    task.spawn(function()
+        while true do
+            task.wait(5)
+            -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.
+            if tick() - serverJoinTime >= serverTimeout then
+                print("Timeout reached. Hopping to a new server.")
+                HopToNewServer()
+                serverJoinTime = tick()
+            -- else
+            --     -- print time remaining until timeout
+            --     print("Timeout in: " .. tostring(serverTimeout - (tick() - serverJoinTime)))
+            end
+        end
+    end)
+end
+
 function main()
+    -- Flag so we don't hop while trying to write to a file or similar.
+    canServerHop = true
+    -- Tracks session stats in a json file
+    StartSession()
+    -- Server hop if we've been in the server for over 2 minutes.
+    CheckServerTimeout()
+
+    -- Invoke required for GetCometData
+    Network = require(ReplicatedStorage.Library.Client.Network)
+    Fire, Invoke = Network.Fire, Network.Invoke
+
+    old = hookfunction(getupvalue(Fire, 1), function(...)
+        return true
+       end)
+
+    -- Check comet data first thing for more comets per hour.
+    local comets = GetCometData()
+    if #comets == 0 then
+        print("No comets found. Changing servers. (Start of main.)")
+        HopToNewServer()
+    else
+        print("Found comet on server. Continuing.")
+    end
+
+    tp = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+
+    Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
+    while not Lib.Loaded do
+        RunService.Heartbeat:Wait()
+    end
+
+    _coins = Workspace["__THINGS"].Coins
+
+
     -- Unlock teleports so we can get to the comets
     UnlockTeleports()
     -- auto collect loot
@@ -254,65 +384,30 @@ function main()
     -- Might want to turn off in some scenarios if you want to collect the gifts in a certain area for all the coins you get in the last 2.
     AutoCollectFreeGifts()
 
-    local serverTimeout = 200 -- Set the timeout duration in seconds
-    local serverJoinTime = tick()
-
     while true do
-        -- https://v3rmillion.net/showthread.php?tid=1119874
-        if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
-            print("Detected error prompt. Trying to join new game")
-            HopToNewServer()
-        end
-
-        -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.
-        if tick() - serverJoinTime >= serverTimeout then
-            print("Timeout reached. Hopping to a new server.")
-            HopToNewServer()
-            serverJoinTime = tick()
-        end
+        print("main loop")
 
         task.wait(1)
-        local comets = GetCometData()
+        comets = GetCometData()
         if #comets == 0 then
-            print("No comet found. Changing servers.")
-            HopToNewServer()
-            return
+            if canServerHop then
+                print("No comet found. Changing servers.")
+                HopToNewServer()
+                return
+            else
+                print("No comet found. Waiting until canServerHop.")
+                repeat task.wait() until canServerHop
+            end
         end
 
         print("Found comet!")
 
         for _, comet in ipairs(comets) do
-            if comet["Destroyed"] then
+            if not comet["Destroyed"] then
+                ProcessComet(comet)
+                break
+            else
                 print("Comet already destroyed.")
-                continue
-            end
-
-            local cometArea = tostring(comet["AreaId"])
-            print("Teleporting to comet: " .. cometArea)
-
-            -- print comet data
-            for i, v in pairs(comet) do
-                print(i, v)
-            end
-
-            -- teleport to the comet's area
-            TeleportToArea(cometArea)
-
-            -- get coin data for area
-            local cometCoinObjects = GetComets(cometArea)
-            for i = 1, #cometCoinObjects do
-                if not _coins:FindFirstChild(cometCoinObjects[i].index) then
-                    continue
-                end
-
-                print("Found child coin, idx: " .. cometCoinObjects[i].index)
-
-                local myPets = GetMyPets()
-                for _, pet in pairs(myPets) do
-                    print("pet loop, idx: " .. tostring(_))
-                    FarmCoin(cometCoinObjects[i].index, pet.uid)
-                end
-                repeat task.wait() until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
             end
         end
     end
