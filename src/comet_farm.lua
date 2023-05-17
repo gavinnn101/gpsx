@@ -99,11 +99,13 @@ TeleportService.TeleportInitFailed:Connect(function(player, resultEnum, msg)
         print("Teleport already in progress.")
     elseif resultEnum == Enum.TeleportResult.GameFull then
         print("Tried to join a full server. Hopping to a new server.")
+        task.wait(5)
         HopToNewServer()
     elseif resultEnum == Enum.TeleportResult.Failure or resultEnum == Enum.TeleportResult.GameNotFound or resultEnum == Enum.TeleportResult.GameEnded or resultEnum == Enum.TeleportResult.Flooded or resultEnum == Enum.TeleportResult.Unauthorized then
         local fmt = string.format('server: teleport %s failed, resultEnum:%s, msg:%s',player.Name, tostring(resultEnum), msg)
         print(fmt)
         print("Teleport failed because of a server error Failure / GameNotFound / GameEnded / Flooded / Unauthorized. Hopping to a new server.")
+        task.wait(5)
         HopToNewServer()
     end
 end)
