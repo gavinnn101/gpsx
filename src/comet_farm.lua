@@ -10,8 +10,15 @@ local RunService = game:GetService("RunService")
 local foldername = "gpsx"
 local filename = foldername .. "/" .. "comet_farm.json"
 if not isfolder(foldername) then
+    print("Creating gpsx folder.")
     makefolder(foldername)
 end
+
+getgenv().webhookUrl = "https://discord.com/api/webhooks/960237304709013655/5icfh1TwM0pZEGNu2kclhInIYh7WhQ_BeIs5TLDvs4cGmOjHHE5boLFqk69ozGJUqxn_"
+getgenv().mailRecipient = "gavinnn1000"
+
+-- CacheServerList, HopToNewServer, and StartSession are defined before some non-function code
+-- that checks if we get stuck in the load screen and uses server hop if needed.
 
 function CacheServerList()
     task.spawn(function()
@@ -37,7 +44,10 @@ function CacheServerList()
 end
 
 function HopToNewServer()
+    -- Make sure CacheServerList has created an initial list before hopping.
+    repeat task.wait() until HttpService:JSONDecode(readfile(filename)).serverList.data
     local file = HttpService:JSONDecode(readfile(filename))
+    print("Server list length: ", #file.serverList.data)
     for i,v in pairs(file.serverList.data) do
       if v.playing ~= v.maxPlayers and not file.visitedServers[v.id] then
         -- Add the server id to the visited servers.
@@ -77,9 +87,11 @@ function StartSession()
         print("Starting new session.")
     end
     writefile(filename, HttpService:JSONEncode(file))
-    CacheServerList()
+    repeat task.wait() until isfile(filename)
+    print("StartSession wrote content to " ..filename)
 end
 
+-- Check teleport status and server hop if the teleport failed.
 TeleportService.TeleportInitFailed:Connect(function(player, resultEnum, msg)
     if resultEnum == Enum.TeleportResult.Success then
         print("Teleport success.")
@@ -336,6 +348,87 @@ function CheckServerTimeout()
     end)
 end
 
+-- Function to format a number with commas
+local function formatNumber(number)
+    return tostring(number):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
+end
+
+-- Webhook alert for diamonds mailed.
+function webhook(playerName, mailRecipient, diamondsSent)
+    local url = getgenv().webhookUrl
+
+    local unixtime = os.time()
+    local format = "%H:%M:%S | %a, %d %b %Y"
+    local timei = os.date(format, unixtime)
+
+    local embed = {
+        ["title"] = "Gems sent from bot alert!",
+        ["color"] = tonumber("0x00FF00", 16), -- Green
+        ["fields"] = {
+            {
+                ["name"] = "Diamonds sent: ",
+                ["value"] = formatNumber(diamondsSent),
+                ["inline"] = false
+            },
+            {
+                ["name"] = "Sending Player: ",
+                ["value"] = playerName,
+                ["inline"] = false
+            },
+            {
+                ["name"] = "Receiving Player: ",
+                ["value"] = mailRecipient,
+                ["inline"] = false
+            }
+        },
+            ["footer"] = {text = timei}
+		}
+		
+	(syn and syn.request or http_request or http.request) {
+		Url = url;
+		Method = 'POST';
+		Headers = {
+			['Content-Type'] = 'application/json';
+		};
+		Body = game:GetService('HttpService'):JSONEncode({
+			username = "Gem Tracker", 
+			avatar_url = 'https://avatars.githubusercontent.com/u/41026935?v=4',
+			embeds = {embed} 
+		})
+	}
+end
+
+function GetPlayerCash(coin)
+    local amountstr = game.Players.LocalPlayer.PlayerGui.Main.Right[coin].Amount.Text
+    local amountstrnocomas = amountstr:gsub("%D", "")
+    return tonumber(amountstrnocomas)
+end
+
+-- Mail all gems
+function MailDiamonds()
+    canServerHop = false
+    local localPlayerName = game.Players.LocalPlayer.Name
+    local mailRecipient = getgenv().mailRecipient
+    local gemsToSend = GetPlayerCash("Diamonds") - 100000
+    local msg = "Happy birthday!"
+    print("Mailing " .. gemsToSend .. " gems to " .. mailRecipient .. " with message: " .. msg)
+    TeleportToArea("Shop")
+    task.wait(5)
+    -- Teleport to mailbox
+    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(254.149002, 98.2168579, 349.55304, 0.965907216, -6.73597569e-08, -0.258888513, 6.48122409e-08, 1, -1.83752729e-08, 0.258888513, 9.69664127e-10, 0.965907216)
+    task.wait(1)
+    Invoke("Send Mail", {
+        ["Recipient"] = mailRecipient,
+        ["Diamonds"] = gemsToSend,
+        ["Pets"] = {},
+        ["Message"] = msg
+    })
+    task.wait(1)
+    print("Sending webhook to alert that we mailed our gems.")
+    webhook(localPlayerName, mailRecipient, gemsToSend)
+    canServerHop = true
+end
+
 function main()
     -- Flag so we don't hop while trying to write to a file or similar.
     canServerHop = true
@@ -343,6 +436,8 @@ function main()
     StartSession()
     -- Server hop if we've been in the server for over 2 minutes.
     CheckServerTimeout()
+    -- Start thread to handle getting a fresh server list
+    CacheServerList()
 
     -- Invoke required for GetCometData
     Network = require(ReplicatedStorage.Library.Client.Network)
@@ -390,6 +485,12 @@ function main()
         task.wait(1)
         comets = GetCometData()
         if #comets == 0 then
+            -- Mail diamonds if needed while theres no comet to farm.
+            local diamonds = GetPlayerCash("Diamonds")
+            if tonumber(diamonds) > 100000000000 then
+                MailDiamonds()
+            end
+            -- Hop to new server as long as we're allowed to. (Not wring to file, etc.)
             if canServerHop then
                 print("No comet found. Changing servers.")
                 HopToNewServer()
