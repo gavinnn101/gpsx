@@ -277,7 +277,7 @@ function AutoCollectFreeGifts()
     task.spawn(function()
         while true and game:IsLoaded() do
             -- print("Checking for free gifts...")
-            local txt = game:GetService("Players").LocalPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
+            local txt = Players.LocalPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
             if txt == "Ready!" then
                 print("Collecting gifts...")
                 for i = 1,12 do
@@ -392,10 +392,10 @@ function webhook(playerName, mailRecipient, diamondsSent)
 		Headers = {
 			['Content-Type'] = 'application/json';
 		};
-		Body = game:GetService('HttpService'):JSONEncode({
-			username = "Gem Tracker", 
+		Body = HttpService:JSONEncode({
+			username = "Gem Tracker",
 			avatar_url = 'https://avatars.githubusercontent.com/u/41026935?v=4',
-			embeds = {embed} 
+			embeds = {embed}
 		})
 	}
 end
