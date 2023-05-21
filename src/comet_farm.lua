@@ -9,62 +9,94 @@ local RunService = game:GetService("RunService")
 
 local foldername = "gpsx"
 local filename = foldername .. "/" .. "comet_farm.json"
-if not isfolder(foldername) then
-    print("Creating gpsx folder.")
-    makefolder(foldername)
-end
 
 getgenv().webhookUrl = "https://discord.com/api/webhooks/960237304709013655/5icfh1TwM0pZEGNu2kclhInIYh7WhQ_BeIs5TLDvs4cGmOjHHE5boLFqk69ozGJUqxn_"
 getgenv().mailRecipient = "gavinnn1000"
 
--- CacheServerList, HopToNewServer, and StartSession are defined before some non-function code
--- that checks if we get stuck in the load screen and uses server hop if needed.
+function SafeWriteFile(filename, content)
+    local success, err = pcall(function()
+        writefile(filename, content)
+    end)
+
+    if not success then
+        print("An error occurred while writing to the file: ".. err)
+        return false
+    end
+    return true
+end
+
+function SafeReadFile(filename)
+    local success, resultOrErr = pcall(function()
+        return readfile(filename)
+    end)
+
+    if not success then
+        print("An error occurred while reading the file: ".. resultOrErr)
+        return nil
+    end
+    return resultOrErr
+end
 
 function CacheServerList()
     task.spawn(function()
-        while true do
-            local file = HttpService:JSONDecode(readfile(filename))
+        print("Thread spawned for caching server list to file.")
+        while task.wait(10) do
+            local file = HttpService:JSONDecode(SafeReadFile(filename))
             if not file or (tick() - file.serverListCacheTime) > 60 then
                 canServerHop = false
                 print("Getting new server list.")
-                local _success, servers = pcall(function()
+                local success, servers = pcall(function()
                     return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
                 end)
-                file.serverList = servers
-                file.serverListCacheTime = tick()
-                -- Reset the visited servers when getting a new server list.
-                file.visitedServers = {}
-                writefile(filename, HttpService:JSONEncode(file))
-                print("Wrote new server list to file.")
-                canServerHop = true
+                -- Only update the file if the HTTP request is successful and JSON can be parsed.
+                if success then
+                    file.serverList = servers
+                    file.serverListCacheTime = tick()
+                    -- Reset the visited servers when getting a new server list.
+                    file.visitedServers = {}
+                    SafeWriteFile(filename, HttpService:JSONEncode(file))
+                    print("Wrote new server list to file.")
+                    canServerHop = true
+                else
+                    print("Failed to get server list. HTTP request unsuccessful or JSON could not be parsed.")
+                end
+            -- else
+            --     local timeLeft = 60 - (tick() - file.serverListCacheTime)
+            --     print("Server list is still cached. Will refresh in " .. timeLeft .. " seconds.")
             end
-            task.wait(1)
         end
     end)
 end
 
 function HopToNewServer()
     -- Make sure CacheServerList has created an initial list before hopping.
-    repeat task.wait() until HttpService:JSONDecode(readfile(filename)).serverList.data
-    local file = HttpService:JSONDecode(readfile(filename))
+    print("Waiting for valid server list data before hopping")
+    repeat task.wait(1) until HttpService:JSONDecode(SafeReadFile(filename)).serverList.data
+    print("Got server list data. Continuing to hop.")
+    local file = HttpService:JSONDecode(SafeReadFile(filename))
     print("Server list length: ", #file.serverList.data)
     for i,v in pairs(file.serverList.data) do
       if v.playing ~= v.maxPlayers and not file.visitedServers[v.id] then
         -- Add the server id to the visited servers.
         file.visitedServers[v.id] = true
-        writefile(filename, HttpService:JSONEncode(file))
+        SafeWriteFile(filename, HttpService:JSONEncode(file))
         print("teleporting to server: ", v.id)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-        repeat task.wait() until game:IsLoaded()
+        repeat task.wait(1) until game:IsLoaded()
         return
       end
+      task.wait(0.1)
     end
 end
 
 function StartSession()
+    if not isfolder(foldername) then
+        print("Creating gpsx folder.")
+        makefolder(foldername)
+    end
     local file
     if isfile(filename) then
-        file = HttpService:JSONDecode(readfile(filename))
+        file = HttpService:JSONDecode(SafeReadFile(filename))
         file.checkInTime = tick()
         -- If the last check-in was over 5 minutes ago (300 seconds), start a new session.
         if (file.checkInTime - file.sessionStartTime) > 300 then
@@ -86,49 +118,24 @@ function StartSession()
         }
         print("Starting new session.")
     end
-    writefile(filename, HttpService:JSONEncode(file))
-    repeat task.wait() until isfile(filename)
+    SafeWriteFile(filename, HttpService:JSONEncode(file))
+    repeat task.wait(1) until isfile(filename)
     print("StartSession wrote content to " ..filename)
 end
 
--- Check teleport status and server hop if the teleport failed.
-TeleportService.TeleportInitFailed:Connect(function(player, resultEnum, msg)
-    if resultEnum == Enum.TeleportResult.Success then
-        print("Teleport success.")
-    elseif resultEnum == Enum.TeleportResult.IsTeleporting then
-        print("Teleport already in progress.")
-    elseif resultEnum == Enum.TeleportResult.GameFull then
-        print("Tried to join a full server. Hopping to a new server.")
-        task.wait(5)
-        HopToNewServer()
-    elseif resultEnum == Enum.TeleportResult.Failure or resultEnum == Enum.TeleportResult.GameNotFound or resultEnum == Enum.TeleportResult.GameEnded or resultEnum == Enum.TeleportResult.Flooded or resultEnum == Enum.TeleportResult.Unauthorized then
-        local fmt = string.format('server: teleport %s failed, resultEnum:%s, msg:%s',player.Name, tostring(resultEnum), msg)
-        print(fmt)
-        print("Teleport failed because of a server error Failure / GameNotFound / GameEnded / Flooded / Unauthorized. Hopping to a new server.")
-        task.wait(5)
-        HopToNewServer()
-    end
-end)
-
--- Server hop if we get stuck in the load screen. This solves error code 279.
-local success, errorMsg = pcall(function()
-    local timer = 60
-    while timer > 0 and not game:IsLoaded() do
-        task.wait(1)
-        timer = timer - 1
-    end
-    if timer == 0 then
-        print("Timed out loading into server. Hopping to a new server.")
-        HopToNewServer()
-    end
-end)
-
-if not success then
-    print("Error occurred: ", errorMsg)
-    HopToNewServer()
+function HopOnErrorPrompt()
+    -- hop to a new server if we get an error prompt
+    task.spawn(function()
+        print("Thread spawned for hopping on error prompt.")
+        while task.wait(5) do
+            if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
+                print("Error prompt detected. Hopping to a new server.")
+                task.wait(5)
+                HopToNewServer()
+            end
+        end
+    end)
 end
-
-print("Game loaded")
 
 function GetComets(area)
     local cometsFound = {}
@@ -141,6 +148,7 @@ function GetComets(area)
             coin["index"] = i
             table.insert(cometsFound, coin)
         end
+        task.wait(0.1)
     end
     return cometsFound
 end
@@ -181,7 +189,9 @@ function GetCometData()
 --             -- i: EndPosition   v: <Position>
             end
             table.insert(cometsFound, comet)
+            task.wait(0.1)
         end
+        task.wait(0.1)
     end
     return cometsFound
 end
@@ -219,63 +229,57 @@ end
 
 function AutoCollectLootBags()
     task.spawn(function()
-        while true and game:IsLoaded() do
+        while task.wait(1) and game:IsLoaded() do
             local lootbags = GetLootBags()
             for _, v in ipairs(lootbags) do
                 v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
                 task.wait(0.1)
             end
-            task.wait(1)
         end
     end)
 end
 
 function AutoCollectOrbs()
     task.spawn(function()
-        while true and game:IsLoaded() do
+        while task.wait(1) and game:IsLoaded() do
             local orbs = GetOrbs()
             for _, v in ipairs(orbs) do
                 v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
                 task.wait(0.1)
             end
-            task.wait(1)
         end
     end)
 end
 
 function AutoTripleDamage()
     task.spawn(function()
-        while true and game:IsLoaded() do
+        while task.wait(5) and game:IsLoaded() do
             -- activate triple damage "potion" if not already active
             local Save = Lib.Save.Get()
             if Save["Boosts"]["Triple Damage"] == nil or Save["Boosts"]["Triple Damage"] < 60 then
                 print("Activating triple damage")
                 Fire("Activate Boost", "Triple Damage")
-                task.wait(1)
             end
-            task.wait(5)
         end
     end)
 end
 
 function AutoTripleCoins()
     task.spawn(function()
-        while true and game:IsLoaded() do
+        while task.wait(5) and game:IsLoaded() do
             -- activate triple coins "potion" if not already active
             local Save = Lib.Save.Get()
             if Save["Boosts"]["Triple Coins"] == nil or Save["Boosts"]["Triple Coins"] < 60 then
                 print("Activating triple coins")
                 Fire("Activate Boost", "Triple Coins")
-                task.wait(1)
             end
-            task.wait(5)
         end
     end)
 end
 
 function AutoCollectFreeGifts()
     task.spawn(function()
-        while true and game:IsLoaded() do
+        while task.wait(5) and game:IsLoaded() do
             -- print("Checking for free gifts...")
             local txt = Players.LocalPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
             if txt == "Ready!" then
@@ -289,7 +293,6 @@ function AutoCollectFreeGifts()
                 print("Free gifts aren't ready to collect...")
                 task.wait(60)
             end
-            task.wait(1)
         end
     end)
 end
@@ -300,6 +303,7 @@ function ProcessComet(comet)
 
     -- print comet data
     for i, v in pairs(comet) do
+        task.wait(0.1)
         print(i, v)
     end
 
@@ -309,6 +313,7 @@ function ProcessComet(comet)
     -- get coin data for area
     local cometCoinObjects = GetComets(cometArea)
     for i = 1, #cometCoinObjects do
+        task.wait(0.1)
         if not _coins:FindFirstChild(cometCoinObjects[i].index) then
             continue
         end
@@ -317,16 +322,17 @@ function ProcessComet(comet)
 
         local myPets = GetMyPets()
         for _, pet in pairs(myPets) do
+            task.wait(0.1)
             print("pet loop, idx: " .. tostring(_))
             FarmCoin(cometCoinObjects[i].index, pet.uid)
         end
-        repeat RunService.Heartbeat:Wait() until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
+        repeat task.wait(1) until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
         -- Increment the cometsFound counter and save to the file.
         canServerHop = false
-        local file = HttpService:JSONDecode(readfile(filename))
+        local file = HttpService:JSONDecode(SafeReadFile(filename))
         file.cometsFound = file.cometsFound + 1
         print("Comets found during session: " .. tostring(file.cometsFound))
-        writefile(filename, HttpService:JSONEncode(file))
+        SafeWriteFile(filename, HttpService:JSONEncode(file))
         canServerHop = true
     end
 end
@@ -335,10 +341,10 @@ function CheckServerTimeout()
     local serverTimeout = 300 -- Set the timeout duration in seconds
     local serverJoinTime = tick()
     task.spawn(function()
-        while true do
-            task.wait(5)
+        print("Thread spawned for hopping after being in server for too long.")
+        while task.wait(5) do
             -- Change to a new server if we've been in the current one for over ~2 minutes. Could be an unreachable comet or similar.
-            if tick() - serverJoinTime >= serverTimeout then
+            if (tick() - serverJoinTime) >= serverTimeout then
                 print("Timeout reached. Hopping to a new server.")
                 HopToNewServer()
                 serverJoinTime = tick()
@@ -348,6 +354,26 @@ function CheckServerTimeout()
             end
         end
     end)
+end
+
+function EnsureServerLoads()
+    -- Server hop if we get stuck in the load screen. This solves error code 279.
+    print("Waiting for game to load... (EnsureServerLoads)")
+    local success, errorMsg = pcall(function()
+        local timer = 60
+        while task.wait(1) and timer > 0 and not game:IsLoaded() do
+            timer = timer - 1
+        end
+        if timer == 0 then
+            print("Timed out loading into server. Hopping to a new server.")
+            HopToNewServer()
+        end
+    end)
+
+    if not success then
+        print("Error occurred: ", errorMsg)
+        HopToNewServer()
+    end
 end
 
 -- Function to format a number with commas
@@ -431,20 +457,65 @@ function MailDiamonds()
     canServerHop = true
 end
 
+function postUserStats(playerName, currentDiamondsEarned)
+    local url = 'http://localhost:5000/api/v1/stats'  -- Change this to your API's URL
+
+    local requestBody = {
+        username = playerName,
+        current_run_time = tick(),
+        current_diamonds_earned = currentDiamondsEarned
+    }
+
+    (syn and syn.request or http_request or http.request) {
+        Url = url,
+        Method = 'POST',
+        Headers = {
+            ['Content-Type'] = 'application/json'
+        },
+        Body = HttpService:JSONEncode(requestBody)
+    }
+end
+
+-- Check teleport status and server hop if the teleport failed.
+TeleportService.TeleportInitFailed:Connect(function(player, resultEnum, msg)
+    task.wait(5)
+    if resultEnum == Enum.TeleportResult.Success then
+        print("Teleport success.")
+    elseif resultEnum == Enum.TeleportResult.IsTeleporting then
+        print("Teleport already in progress.")
+    elseif resultEnum == Enum.TeleportResult.GameFull then
+        print("Tried to join a full server. Hopping to a new server.")
+        HopToNewServer()
+    elseif resultEnum == Enum.TeleportResult.Failure or resultEnum == Enum.TeleportResult.GameNotFound or resultEnum == Enum.TeleportResult.GameEnded or resultEnum == Enum.TeleportResult.Flooded or resultEnum == Enum.TeleportResult.Unauthorized then
+        local fmt = string.format('server: teleport %s failed, resultEnum:%s, msg:%s',player.Name, tostring(resultEnum), msg)
+        print(fmt)
+        print("Teleport failed because of a server error Failure / GameNotFound / GameEnded / Flooded / Unauthorized. Hopping to a new server.")
+        HopToNewServer()
+    end
+end)
+
 function main()
+    -- Make sure we load into the server or hop otherwise.
+    EnsureServerLoads()
+    print("Game loaded")
+    print("Disabling 3D Rendering to save cpu.")
+    -- Disable 3d rendering if it's enabled.
+    RunService:Set3dRenderingEnabled(false)
     -- Flag so we don't hop while trying to write to a file or similar.
     canServerHop = true
     -- Tracks session stats in a json file
     StartSession()
+    -- Hop servers if we get an error prompt (error 277, 279, etc)
+    HopOnErrorPrompt()
     -- Server hop if we've been in the server for over 2 minutes.
     CheckServerTimeout()
     -- Start thread to handle getting a fresh server list
     CacheServerList()
 
-    -- Invoke required for GetCometData
     Network = require(ReplicatedStorage.Library.Client.Network)
     Fire, Invoke = Network.Fire, Network.Invoke
 
+    -- Hook Fire/Invoke to bypass AC
     old = hookfunction(getupvalue(Fire, 1), function(...)
         return true
        end)
@@ -481,39 +552,40 @@ function main()
     -- Might want to turn off in some scenarios if you want to collect the gifts in a certain area for all the coins you get in the last 2.
     AutoCollectFreeGifts()
 
-    while true do
-        print("main loop")
-
-        task.wait(1)
-        comets = GetCometData()
-        if #comets == 0 then
-            -- Mail diamonds if needed while theres no comet to farm.
-            local diamonds = GetPlayerCash("Diamonds")
-            if tonumber(diamonds) > 100000000000 then
-                MailDiamonds()
+    task.spawn(function()
+        print("Spawning thread to run the main loop")
+        while task.wait(1) do
+            comets = GetCometData()
+            if #comets == 0 then
+                -- Mail diamonds if needed while theres no comet to farm.
+                local diamonds = GetPlayerCash("Diamonds")
+                if tonumber(diamonds) > 100000000000 then
+                    MailDiamonds()
+                end
+                -- Hop to new server as long as we're allowed to. (Not wring to file, etc.)
+                if canServerHop then
+                    print("No comet found. Changing servers.")
+                    HopToNewServer()
+                    return
+                else
+                    print("No comet found. Waiting until canServerHop.")
+                    repeat task.wait(1) until canServerHop
+                end
             end
-            -- Hop to new server as long as we're allowed to. (Not wring to file, etc.)
-            if canServerHop then
-                print("No comet found. Changing servers.")
-                HopToNewServer()
-                return
-            else
-                print("No comet found. Waiting until canServerHop.")
-                repeat task.wait() until canServerHop
+
+            print("Found comet!")
+
+            for _, comet in ipairs(comets) do
+                if not comet["Destroyed"] then
+                    ProcessComet(comet)
+                    break
+                else
+                    print("Comet already destroyed.")
+                end
+                task.wait(0.1)
             end
         end
-
-        print("Found comet!")
-
-        for _, comet in ipairs(comets) do
-            if not comet["Destroyed"] then
-                ProcessComet(comet)
-                break
-            else
-                print("Comet already destroyed.")
-            end
-        end
-    end
+    end)
 end
 
 main()
