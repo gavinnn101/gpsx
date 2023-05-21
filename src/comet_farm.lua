@@ -7,8 +7,8 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
 
-local foldername = "gpsx"
-local filename = foldername .. "/" .. "comet_farm.json"
+local dataFolderName = "gpsx"
+local dataFileName = dataFolderName .. "/" .. "comet_farm.json"
 
 getgenv().webhookUrl = "https://discord.com/api/webhooks/960237304709013655/5icfh1TwM0pZEGNu2kclhInIYh7WhQ_BeIs5TLDvs4cGmOjHHE5boLFqk69ozGJUqxn_"
 getgenv().mailRecipient = "gavinnn1000"
@@ -41,7 +41,7 @@ function CacheServerList()
     task.spawn(function()
         print("Thread spawned for caching server list to file.")
         while task.wait(10) do
-            local file = HttpService:JSONDecode(SafeReadFile(filename))
+            local file = HttpService:JSONDecode(SafeReadFile(dataFileName))
             if not file or (tick() - file.serverListCacheTime) > 60 then
                 canServerHop = false
                 print("Getting new server list.")
@@ -54,7 +54,7 @@ function CacheServerList()
                     file.serverListCacheTime = tick()
                     -- Reset the visited servers when getting a new server list.
                     file.visitedServers = {}
-                    SafeWriteFile(filename, HttpService:JSONEncode(file))
+                    SafeWriteFile(dataFileName, HttpService:JSONEncode(file))
                     print("Wrote new server list to file.")
                     canServerHop = true
                 else
@@ -71,15 +71,15 @@ end
 function HopToNewServer()
     -- Make sure CacheServerList has created an initial list before hopping.
     print("Waiting for valid server list data before hopping")
-    repeat task.wait(1) until HttpService:JSONDecode(SafeReadFile(filename)).serverList.data
+    repeat task.wait(1) until HttpService:JSONDecode(SafeReadFile(dataFileName)).serverList.data
     print("Got server list data. Continuing to hop.")
-    local file = HttpService:JSONDecode(SafeReadFile(filename))
+    local file = HttpService:JSONDecode(SafeReadFile(dataFileName))
     print("Server list length: ", #file.serverList.data)
     for i,v in pairs(file.serverList.data) do
       if v.playing ~= v.maxPlayers and not file.visitedServers[v.id] then
         -- Add the server id to the visited servers.
         file.visitedServers[v.id] = true
-        SafeWriteFile(filename, HttpService:JSONEncode(file))
+        SafeWriteFile(dataFileName, HttpService:JSONEncode(file))
         print("teleporting to server: ", v.id)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
         repeat task.wait(1) until game:IsLoaded()
@@ -90,13 +90,13 @@ function HopToNewServer()
 end
 
 function StartSession()
-    if not isfolder(foldername) then
+    if not isfolder(dataFolderName) then
         print("Creating gpsx folder.")
-        makefolder(foldername)
+        makefolder(dataFolderName)
     end
     local file
-    if isfile(filename) then
-        file = HttpService:JSONDecode(SafeReadFile(filename))
+    if isfile(dataFileName) then
+        file = HttpService:JSONDecode(SafeReadFile(dataFileName))
         file.checkInTime = tick()
         -- If the last check-in was over 5 minutes ago (300 seconds), start a new session.
         if (file.checkInTime - file.sessionStartTime) > 300 then
@@ -118,9 +118,9 @@ function StartSession()
         }
         print("Starting new session.")
     end
-    SafeWriteFile(filename, HttpService:JSONEncode(file))
-    repeat task.wait(1) until isfile(filename)
-    print("StartSession wrote content to " ..filename)
+    SafeWriteFile(dataFileName, HttpService:JSONEncode(file))
+    repeat task.wait(1) until isfile(dataFileName)
+    print("StartSession wrote content to " ..dataFileName)
 end
 
 function HopOnErrorPrompt()
@@ -329,10 +329,10 @@ function ProcessComet(comet)
         repeat task.wait(1) until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
         -- Increment the cometsFound counter and save to the file.
         canServerHop = false
-        local file = HttpService:JSONDecode(SafeReadFile(filename))
+        local file = HttpService:JSONDecode(SafeReadFile(dataFileName))
         file.cometsFound = file.cometsFound + 1
         print("Comets found during session: " .. tostring(file.cometsFound))
-        SafeWriteFile(filename, HttpService:JSONEncode(file))
+        SafeWriteFile(dataFileName, HttpService:JSONEncode(file))
         canServerHop = true
     end
 end
