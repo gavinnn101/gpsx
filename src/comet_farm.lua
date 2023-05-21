@@ -14,27 +14,39 @@ getgenv().webhookUrl = "https://discord.com/api/webhooks/960237304709013655/5icf
 getgenv().mailRecipient = "gavinnn1000"
 
 function SafeWriteFile(filename, content)
+    local ret = nil
+    canServerHop = false
+
     local success, err = pcall(function()
         writefile(filename, content)
     end)
 
     if not success then
         print("An error occurred while writing to the file: ".. err)
-        return false
+        ret = false
+    else
+        ret = true
     end
-    return true
+    canServerHop = true
+    return ret
 end
 
 function SafeReadFile(filename)
+    local ret = nil
+    canServerHop = false
+
     local success, resultOrErr = pcall(function()
         return readfile(filename)
     end)
 
     if not success then
         print("An error occurred while reading the file: ".. resultOrErr)
-        return nil
+        ret = nil
+    else
+        ret = resultOrErr
     end
-    return resultOrErr
+    canServerHop = true
+    return ret
 end
 
 function CacheServerList()
