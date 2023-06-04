@@ -32,6 +32,9 @@ local MINIMUM_ORANGES = 100
 getgenv().webhookUrl = "https://discord.com/api/webhooks/960237304709013655/5icfh1TwM0pZEGNu2kclhInIYh7WhQ_BeIs5TLDvs4cGmOjHHE5boLFqk69ozGJUqxn_"
 getgenv().mailRecipient = "gavinnn1000"
 
+local mysticMinePlatform = "mysticMinePlatform"
+local pixelVaultPlatform = "pixelVaultPlatform"
+
 function UnlockTeleports()
     Lib.Gamepasses.Owns = function() return true end
     local teleportScript = getsenv(localPlayer.PlayerScripts.Scripts.GUIs.Teleport)
@@ -208,16 +211,16 @@ end
 
 
 -- Function to create or move the platform under the player's current position
-function CreatePlatform()
+function CreatePlatform(platformName)
     local character = localPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         local rootPart = character.HumanoidRootPart
 
-        local platform = workspace:FindFirstChild("Platformm")
+        local platform = workspace:FindFirstChild(platformName)
         if not platform then
             -- Create the platform if it doesn't exist
             platform = Instance.new("Part")
-            platform.Name = "Platformm"
+            platform.Name = platformName
             platform.Parent = workspace
             platform.Anchored = true
             platform.Size = Vector3.new(100, 1, 100)
@@ -231,12 +234,12 @@ function CreatePlatform()
 end
 
 -- Function to teleport the player to the platform
-function TeleportToPlatform()
+function TeleportToPlatform(platformName)
     local character = localPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         local rootPart = character.HumanoidRootPart
 
-        local platform = workspace:FindFirstChild("Platformm")
+        local platform = workspace:FindFirstChild(platformName)
         if platform then
             -- Teleport player to platform if the player is more than 5 units away
             local distanceToPlatform = (rootPart.Position - platform.Position).Magnitude
@@ -383,7 +386,7 @@ function main()
     -- Move character to center of mine area
     teleportToCenterOfMine()
     -- Create a platform to hide on
-    CreatePlatform()
+    CreatePlatform(mysticMinePlatform)
 
     -- Farm loop
     while true do
@@ -394,13 +397,15 @@ function main()
         end
         if FARM_FRUIT and getOrangeCount() < MINIMUM_ORANGES - 10 then -- -10 so we arent constantly swapping between farming fruits and diamonds.
             TeleportToArea("Pixel Vault")
+            CreatePlatform(pixelVaultPlatform)
+            TeleportToPlatform(pixelVaultPlatform)
             while getOrangeCount() < MINIMUM_ORANGES do
                 print("Farming oranges... Current count: " .. getOrangeCount() .. " total needed: " .. MINIMUM_ORANGES)
                 farmOranges()
             end
         end
         -- Teleport to platform
-        TeleportToPlatform()
+        TeleportToPlatform(mysticMinePlatform)
         -- Farm mystic mine if we dont need to farm fruit.
         farmMysticMine()
     end
