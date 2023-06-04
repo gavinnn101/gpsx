@@ -40,4 +40,7 @@ luac.out
 *.hex
 
 # Custom added stuff
+*.ffs_db
 *.code-workspace
+*.txt
+test.lua
