@@ -91,15 +91,22 @@ function GetCoins(area)
     return coinTable
 end
 
+function coinExists(coinIndex)
+    return Workspace["__THINGS"].Coins:FindFirstChild(coinIndex) ~= nil
+end
+
 function farmMysticMine()
     local selectedAreas = {"Mystic Mine"}
-    local myPets = nil
+    local myPets = GetMyPets()
+    if myPets == nil then
+        print("No equipped pets found.")
+        return
+    end
+
     for _,selectedArea in ipairs(selectedAreas) do  -- Iterate through each selected area
         task.wait(0.1)
         print("Looking for coins in area: " .. selectedArea)
         local coins = GetCoins(selectedArea)
-        -- print length of coins
-        print("Found " .. #coins .. " coins in area: " .. selectedArea)
 
         if #coins == 0 then
             if #GetLootBags() == 0 and #GetOrbs() == 0 then
@@ -117,11 +124,8 @@ function farmMysticMine()
                 return
             end
         else
-            print("Getting equipped pets")
-            myPets = GetMyPets()
-
             for i = 1, #coins do
-                if Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                if coinExists(coins[i].index) then
                     print("Found child coin, idx: " .. coins[i].index)
 
                     for _, pet in pairs(myPets) do
@@ -130,23 +134,25 @@ function farmMysticMine()
                             FarmCoin(coins[i].index, pet.uid)
                         end)
                     end
-                end
-                print("Waiting for coin to break (idx: " .. coins[i].index .. ")")
 
-                local startTime = os.time()  -- Record the start time
-                repeat
-                    task.wait()
-                until not Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index) or os.time() - startTime >= 30
+                    print("Waiting for coin to break (idx: " .. coins[i].index .. ")")
 
-                if Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index) then
-                    print("Coin still exists after timeout (idx: " .. coins[i].index .. ")")
-                else
-                    print("Coin broken (idx: " .. coins[i].index .. ")")
+                    local startTime = os.time()  -- Record the start time
+                    repeat
+                        task.wait()
+                    until not coinExists(coins[i].index) or os.time() - startTime >= 30
+
+                    if coinExists(coins[i].index) then
+                        print("Coin still exists after timeout (idx: " .. coins[i].index .. ")")
+                    else
+                        print("Coin broken (idx: " .. coins[i].index .. ")")
+                    end
                 end
             end
         end
     end
 end
+
 
 -- Returns table of lootbags
 function GetLootBags()
@@ -161,15 +167,15 @@ function GetOrbs()
 end
 
 function AutoCollectLootBags()
-    -- task.spawn(function()
-    --     while task.wait(0.1) and game:IsLoaded() do
-    --         local lootbags = GetLootBags()
-    --         for _, v in ipairs(lootbags) do
-    --             task.wait(0.1)
-    --             v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
-    --         end
-    --     end
-    -- end)
+    task.spawn(function()
+        while task.wait(0.1) and game:IsLoaded() do
+            local lootbags = GetLootBags()
+            for _, v in ipairs(lootbags) do
+                task.wait(0.1)
+                v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
+            end
+        end
+    end)
 
     Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
         Fire("Collect Lootbag", v.Name, v.Position)
@@ -177,15 +183,15 @@ function AutoCollectLootBags()
 end
 
 function AutoCollectOrbs()
-    -- task.spawn(function()
-    --     while task.wait(0.1) and game:IsLoaded() do
-    --         local orbs = GetOrbs()
-    --         for _, v in ipairs(orbs) do
-    --             task.wait(0.1)
-    --             v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
-    --         end
-    --     end
-    -- end)
+    task.spawn(function()
+        while task.wait(0.1) and game:IsLoaded() do
+            local orbs = GetOrbs()
+            for _, v in ipairs(orbs) do
+                task.wait(0.1)
+                v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
+            end
+        end
+    end)
 
     Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
         Fire("Claim Orbs", {v.Name})
