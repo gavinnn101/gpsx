@@ -17,6 +17,8 @@ getgenv().settings = {
 
     platforms = {
         CREATE_PLATFORMS = true, -- Creates platform under farm area to hide from other players.
+        MYSTIC_MINE_PLATFORM = "mysticMinePlatform", -- Name of the platform to create.
+        PIXEL_VAULT_PLATFORM = "pixelVaultPlatform", -- Name of the platform to create.
     },
 
     serverHop = {
@@ -48,9 +50,6 @@ getgenv().settings = {
 
 -- Define full path to data file.
 getgenv().settings.dataObjects.DATA_FILE_PATH = getgenv().settings.dataObjects.DATA_FOLDER_NAME .. "/" .. getgenv().settings.dataObjects.DATA_FILE_NAME
-
-local mysticMinePlatform = "mysticMinePlatform"
-local pixelVaultPlatform = "pixelVaultPlatform"
 
 function UnlockTeleports()
     Lib.Gamepasses.Owns = function() return true end
@@ -773,9 +772,9 @@ function main()
                 TeleportToArea("Pixel Vault")
                 if getgenv().settings.platforms.CREATE_PLATFORMS then
                     task.wait(1)
-                    CreatePlatform(pixelVaultPlatform)
+                    CreatePlatform(getgenv().settings.platforms.PIXEL_VAULT_PLATFORM)
                     task.wait(1)
-                    TeleportToPlatform(pixelVaultPlatform)
+                    TeleportToPlatform(getgenv().settings.platforms.PIXEL_VAULT_PLATFORM)
                 end
                 currentArea = "Pixel Vault"
             end
@@ -795,10 +794,10 @@ function main()
             if getgenv().settings.platforms.CREATE_PLATFORMS then
                 task.wait(1)
                 -- Create a platform to hide on
-                CreatePlatform(mysticMinePlatform)
+                CreatePlatform(getgenv().settings.platforms.MYSTIC_MINE_PLATFORM)
                 task.wait(1)
                 -- Teleport to platform
-                TeleportToPlatform(mysticMinePlatform)
+                TeleportToPlatform(getgenv().settings.platforms.MYSTIC_MINE_PLATFORM)
             end
             currentArea = "Mystic Mine"
         end
