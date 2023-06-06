@@ -48,7 +48,8 @@ getgenv().settings = {
     },
 
     webhook = {
-        WEBHOOK_ENABLED = true, -- Will send webhook notification when muling gems if enabled.
+        MULE_WEBHOOK_ENABLED = true, -- Will send webhook notification when muling gems if enabled.
+        PROGRESS_REPORT_WEBHOOK_ENABLED = true, -- Will send webhook notification with session progress every server hop.
         WEBHOOK_URL = "https://discord.com/api/webhooks/960237304709013655/5icfh1TwM0pZEGNu2kclhInIYh7WhQ_BeIs5TLDvs4cGmOjHHE5boLFqk69ozGJUqxn_", -- Discord webhook url.
     },
 }
@@ -105,7 +106,7 @@ function countTable(tbl)
 end
 
 function CacheServerList()
-    local CACHE_EVERY_SECONDS = 120
+    local CACHE_EVERY_SECONDS = 600
     task.spawn(function()
         print("Thread spawned for caching server list to file.")
         while task.wait(10) do
@@ -115,7 +116,7 @@ function CacheServerList()
 
                 local cursor = nil
                 local pagesTraversed = 0
-                local MIN_PAGES = 5  -- Modify this to change the minimum number of pages to traverse
+                local MIN_PAGES = 10  -- Modify this to change the minimum number of pages to traverse
                 repeat
                     local success, result = pcall(function()
                         return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100&cursor=" .. (cursor or "")))
@@ -166,6 +167,11 @@ function HopToNewServer()
 
             -- Write the updated data to the file before teleport since this is where our script will lose state.
             SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
+
+            if getgenv().settings.webhook.PROGRESS_REPORT_WEBHOOK_ENABLED then
+                print("Sending progress report webhook before server hop.")
+                progressReportWebhook()
+            end
 
             print("Teleporting to server: ", v.id)
             TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
@@ -609,7 +615,7 @@ function farmOranges()
 end
 
 -- Webhook alert for diamonds mailed.
-function webhook(playerName, mailRecipient, diamondsSent)
+function mailWebhook(playerName, mailRecipient, diamondsSent)
     local url = getgenv().settings.webhook.WEBHOOK_URL
 
     local unixtime = os.time()
@@ -646,11 +652,83 @@ function webhook(playerName, mailRecipient, diamondsSent)
 			['Content-Type'] = 'application/json';
 		};
 		Body = HttpService:JSONEncode({
-			username = "Gem Tracker",
+			username = "Luna the alert cat",
 			avatar_url = 'https://avatars.githubusercontent.com/u/41026935?v=4',
 			embeds = {embed}
 		})
 	}
+end
+
+function progressReportWebhook()
+    local url = getgenv().settings.webhook.WEBHOOK_URL
+
+    local sessionRunTime = getSessionTime()
+    local totalDiamondsEarnedInSession = getTotalDiamondsEarned()
+
+    local diamondsEarnedInCurrentServer = getDiamondsEarnedInCurrentServer(true)
+    local timeInCurrentServer = getTimeInCurrentServer()
+
+    local unixtime = os.time()
+    local format = "%H:%M:%S | %a, %d %b %Y"
+    local timei = os.date(format, unixtime)
+
+    local embed = {
+        ["title"] = "Mystic Mine progress report",
+        ["color"] = tonumber("0x00FF00", 16), -- Green
+        ["fields"] = {
+            {
+                ["name"] = ":pregnant_man: Account",
+                ["value"] = "||"..localPlayer.Name.."||",
+                ["inline"] = false
+            },
+            {
+                ["name"] = ":clock1: Session Run Time",
+                ["value"] = tostring(sessionRunTime),
+                ["inline"] = true
+            },
+            {
+                ["name"] = ":gem: Total Diamonds Earned In Session",
+                ["value"] = totalDiamondsEarnedInSession,
+                ["inline"] = true
+            },
+            {
+                ["name"] = ":clock1: Time In Current Server",
+                ["value"] = tostring(timeInCurrentServer),
+                ["inline"] = false
+            },
+            {
+                ["name"] = ":gem: Diamonds Earned In Current Server",
+                ["value"] = diamondsEarnedInCurrentServer,
+                ["inline"] = false
+            },
+        },
+        ["footer"] = {text = timei}
+    }
+
+    (syn and syn.request or http_request or http.request) {
+        Url = url;
+        Method = 'POST';
+        Headers = {
+            ['Content-Type'] = 'application/json';
+        };
+        Body = HttpService:JSONEncode({
+            username = "Luna the alert cat",
+            avatar_url = 'https://avatars.githubusercontent.com/u/41026935?v=4',
+            embeds = {embed}
+        })
+    }
+end
+
+function getTimeInCurrentServer()
+    local elapsed = os.difftime(os.time(), startTime)
+
+    local seconds = elapsed % 60
+    local minutes = math.floor((elapsed / 60) % 60)
+    local hours = math.floor((elapsed / (60 * 60)) % 24)
+    local days = math.floor(elapsed / (60 * 60 * 24))
+
+    local formattedTime = string.format("%02d:%02d:%02d:%02d", days, hours, minutes, seconds)
+    return formattedTime
 end
 
 function GetPlayerCash(coin)
@@ -679,9 +757,9 @@ function MailDiamonds()
         ["Message"] = msg
     })
     task.wait(1)
-    if getgenv().settings.webhook.WEBHOOK_ENABLED then
+    if getgenv().settings.webhook.MULE_WEBHOOK_ENABLED then
         print("Sending webhook to alert that we mailed our gems.")
-        webhook(localPlayerName, mailRecipient, gemsToSend)
+        mailWebhook(localPlayerName, mailRecipient, gemsToSend)
     end
 end
 
@@ -699,8 +777,28 @@ function isPlayerValid()
     return false
 end
 
-function updateTotalDiamondsEarned()
+function getDiamondsEarnedInCurrentServer(formatNumber)
+    -- pass true to return the number pretty printed / formatted. false to get the raw number.
     local diamondsEarned = GetPlayerCash("Diamonds") - startDiamonds
+
+    if formatNumber then
+        -- Convert the number to a more readable format
+        local units = {"", "k", "m", "b"}
+        local unitIndex = 1
+        while diamondsEarned >= 1000 do
+            diamondsEarned = diamondsEarned / 1000
+            unitIndex = unitIndex + 1
+        end
+
+        -- Round to one decimal place and append the correct unit
+        diamondsEarned = math.floor(diamondsEarned * 10 + 0.5) / 10
+        diamondsEarned = tostring(diamondsEarned) .. units[unitIndex]
+    end
+    return diamondsEarned
+end
+
+function updateTotalDiamondsEarned()
+    local diamondsEarned = getDiamondsEarnedInCurrentServer(false)
 
     local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
     local totalDiamonedEarned = file.totalDiamondsEarned or 0 -- in case the variable isnt alreay in the file.
@@ -708,7 +806,7 @@ function updateTotalDiamondsEarned()
     SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
 end
 
-function printTotalDiamondsEarned()
+function getTotalDiamondsEarned()
     local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
     local diamonds = file.totalDiamondsEarned or 0
 
@@ -723,11 +821,15 @@ function printTotalDiamondsEarned()
     -- Round to one decimal place and append the correct unit
     diamonds = math.floor(diamonds * 10 + 0.5) / 10
     local diamondsStr = tostring(diamonds) .. units[unitIndex]
-
-    print("Total Diamonds Earned This Session: " .. diamondsStr)
+    return diamondsStr
 end
 
-function printSessionTime()
+function printTotalDiamondsEarned()
+    local totalDiamondsEarned = getTotalDiamondsEarned()
+    print("Total Diamonds Earned This Session: " .. totalDiamondsEarned)
+end
+
+function getSessionTime()
     local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
     local startRealTime = file.sessionStartRealTime
     local elapsed = os.difftime(os.time(), startRealTime)
@@ -738,6 +840,11 @@ function printSessionTime()
     local days = math.floor(elapsed / (60 * 60 * 24))
 
     local formattedTime = string.format("%02d:%02d:%02d:%02d", days, hours, minutes, seconds)
+    return formattedTime
+end
+
+function printSessionTime()
+    local formattedTime = getSessionTime()
     print("Total Session Time: " .. formattedTime)
 end
 
@@ -825,7 +932,9 @@ function main()
     -- Unlock teleports to get to mystic mine / pixel vault / etc.
     UnlockTeleports()
 
+    -- For stat tracking
     startDiamonds = GetPlayerCash("Diamonds")
+    startTime = os.time()
 
     printSessionTime()
     printTotalDiamondsEarned()
