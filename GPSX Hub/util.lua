@@ -15,22 +15,22 @@ while not Lib.Loaded do
     game:GetService("RunService").Heartbeat:Wait()
 end
 
-local Client = require(game.ReplicatedStorage.Library.Client)
+-- Services
 local RunService = game:GetService("RunService")
-local tp = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+local Players = game:GetService("Players")
+
+local Client = require(game.ReplicatedStorage.Library.Client)
+local tp = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 local menus = game.Players.LocalPlayer.PlayerGui.Main.Right
 
--- Hooking the _check function to bypass the anticheat (Blunder) environment check.
--- debug.setupvalue(Invoke, 1, function() return true end)
--- debug.setupvalue(Fire, 1, function() return true end)
-
+-- Hooking invoke/fire functions to return true.
 local old
 old = hookfunction(getupvalue(Fire, 1), function(...)
  return true
 end)
 
 function Util.notify(msg)
-    local Notify = getsenv(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Admin Commands"):WaitForChild("Admin Cmds Client")).AddNotification
+    local Notify = getsenv(Players.LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Admin Commands"):WaitForChild("Admin Cmds Client")).AddNotification
     Notify(msg)
     print(msg)
 end
@@ -173,30 +173,36 @@ function Util.GetMyPets()
     return Lib.PetCmds.GetEquipped()
 end
 
---returns all coins within the given area (area must be a table of conent)
+--returns all coins within the given area (area must be a table of content)
 function Util.GetCoins(area)
     local returntable = {}
     local listCoins = Invoke("Get Coins")
-    -- print("getting coins in area: " .. area .. "")
+
+    local playerCharacter = Players.LocalPlayer.Character
+    local playerRootPart = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
+
     for i,v in pairs(listCoins) do
         if area == v.a then
-            -- print("Found coin in area: " .. area .. " with index: " .. i .. "")
-            local coin = v
-            coin["index"] = i
-            table.insert(returntable, coin)
+            -- Make sure coin is in farmable distance.
+            if playerRootPart then
+                local coinPosition = v.p
+                local distance = (coinPosition - playerRootPart.Position).Magnitude
+                if distance <= 8000 then
+                    local coin = v
+                    coin["index"] = i
+                    table.insert(returntable, coin)
+                end
+            end
         end
     end
     return returntable
 end
 
+
 function Util.FarmCoin(CoinID, PetID)
     print("farming coin (FarmCoin)")
-    local v86 = Invoke("Join Coin", CoinID, {PetID})
-    for v88, v89 in pairs(v86) do
-        Fire("Farm Coin", CoinID, v88);
-    end
-    -- Invoke("Join Coin", CoinID, {PetID})
-    -- Fire("Farm Coin", CoinID, PetID)
+    Invoke("Join Coin", CoinID, {PetID})
+    Fire("Farm Coin", CoinID, PetID)
 end
 
 function Util.AutoFarm()
@@ -205,23 +211,31 @@ function Util.AutoFarm()
         local CurrentFarmingPets = {}
         task.spawn(function()
             while getgenv().Toggles.AutoFarmEnabledToggle.Value do
+                task.wait(0.1)
                 print("Getting equipped pets")
                 local myPets = Util.GetMyPets()
+            
                 if getgenv().Options.FarmTypeDropdown.Value == "Normal" then
                     -- Normal farm
-                    print("looking for coins in: " .. getgenv().Options.FarmAreaDropdown.Value)
-                    local coins = Util.GetCoins(getgenv().Options.FarmAreaDropdown.Value)
-                    for i = 1, #coins do
-                        if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
-                            print("Found child coin, idx: " ..coins[i].index)
-                            for _, pet in pairs(myPets) do
-                                print("pet loop, idx: " .. tostring(_))
-                                task.spawn(function()
-                                    Util.FarmCoin(coins[i].index, pet.uid)
-                                end)
+                    local selectedAreas = getgenv().Options.FarmAreaDropdown.Value  -- Get list of selected areas
+                    for selectedArea, enabled in next, selectedAreas do  -- Iterate through each selected area
+                        task.wait(0.1)
+                        local coins = Util.GetCoins(selectedArea)
+            
+                        for i = 1, #coins do
+                            if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                print("Found child coin, idx: " .. coins[i].index)
+            
+                                for _, pet in pairs(myPets) do
+                                    print("Pet loop, idx: " .. tostring(_))
+                                    task.spawn(function()
+                                        Util.FarmCoin(coins[i].index, pet.uid)
+                                    end)
+                                end
                             end
+            
+                            repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
                         end
-                        repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Nearest" then
                     -- Farm nearest coins
@@ -244,31 +258,35 @@ function Util.AutoFarm()
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Multi Target" then
                     -- Multi target farm
-                    print("looking for coins in: " .. getgenv().Options.FarmAreaDropdown.Value)
-                    local coins = Util.GetCoins(getgenv().Options.FarmAreaDropdown.Value)
+                    local selectedAreas = getgenv().Options.FarmAreaDropdown.Value  -- Get list of selected areas
                     local Things = game:GetService("Workspace")["__THINGS"]
                     local Coins = Things.Coins
-                    local Pets = Things.Pets
                     local numPets = #myPets
                     local coinFarmTimeout = 4
-                    for i = 1, #coins do
-                        local petIndex = i % numPets + 1
-                        if i % numPets == numPets - 1 then
-                            task.wait()
+
+                    for selectedArea, enabled in next, selectedAreas do  -- Iterate through each selected area
+                        local coins = Util.GetCoins(selectedArea)
+                                        
+                        for i = 1, #coins do
+                            local petIndex = i % numPets + 1
+                            if not CurrentFarmingPets[myPets[petIndex]] then
+                                task.spawn(function()
+                                    local currentPet = myPets[petIndex]
+                                    local currentCoin = coins[i].index
+                                    CurrentFarmingPets[currentPet] = 'Farming'
+                                    Util.FarmCoin(currentCoin, currentPet.uid)
+                                    local startTime = tick()
+                                    repeat task.wait(0.1) until not Coins:FindFirstChild(currentCoin) or (tick() - startTime >= coinFarmTimeout)
+                                    CurrentFarmingPets[currentPet] = nil
+                                end)
+                            end
+                            -- Only wait if we're at the last pet, otherwise continue immediately
+                            if i % numPets == numPets - 1 then
+                                task.wait()
+                            end
                         end
-                        if not CurrentFarmingPets[myPets[petIndex]] then
-                            task.spawn(function()
-                                local currentPet = myPets[petIndex]
-                                local currentCoin = coins[i].index
-                                CurrentFarmingPets[currentPet] = 'Farming'
-                                Util.FarmCoin(currentCoin, currentPet.uid)
-                                local startTime = tick()
-                                repeat task.wait(0.1) until not Coins:FindFirstChild(currentCoin) or (tick() - startTime >= coinFarmTimeout)
-                                CurrentFarmingPets[currentPet] = nil
-                            end)
-                        end
-                        -- We get kicked if we farm to fast I think. trying to slow it down with this. task.wait(0.2) confirmed no kick.
-                        task.wait(0.15)
+                        -- We get kicked if we farm too fast. Trying to slow it down with this.
+                        task.wait(0.5)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Highest Value" then
                     -- Farm highest value coin

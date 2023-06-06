@@ -12,7 +12,7 @@ local dataFileName = dataFolderName .. "/" .. "comet_farm.json"
 
 getgenv().webhookUrl = "https://discord.com/api/webhooks/960237304709013655/5icfh1TwM0pZEGNu2kclhInIYh7WhQ_BeIs5TLDvs4cGmOjHHE5boLFqk69ozGJUqxn_"
 getgenv().mailRecipient = "gavinnn1000"
-
+   
 function SafeWriteFile(filename, content)
     local ret = nil
     canServerHop = false
@@ -83,7 +83,7 @@ end
 function HopToNewServer()
     -- Make sure CacheServerList has created an initial list before hopping.
     print("Waiting for valid server list data before hopping")
-    repeat task.wait(1) until HttpService:JSONDecode(SafeReadFile(dataFileName)).serverList.data
+    repeat task.wait(0.1) until HttpService:JSONDecode(SafeReadFile(dataFileName)).serverList.data
     print("Got server list data. Continuing to hop.")
     local file = HttpService:JSONDecode(SafeReadFile(dataFileName))
     print("Server list length: ", #file.serverList.data)
@@ -94,7 +94,7 @@ function HopToNewServer()
         SafeWriteFile(dataFileName, HttpService:JSONEncode(file))
         print("teleporting to server: ", v.id)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-        repeat task.wait(1) until game:IsLoaded()
+        repeat task.wait(0.1) until game:IsLoaded()
         return
       end
       task.wait(0.1)
@@ -160,7 +160,7 @@ function GetComets(area)
             coin["index"] = i
             table.insert(cometsFound, coin)
         end
-        task.wait(0.1)
+        -- task.wait(0.1)
     end
     return cometsFound
 end
@@ -201,19 +201,17 @@ function GetCometData()
 --             -- i: EndPosition   v: <Position>
             end
             table.insert(cometsFound, comet)
-            task.wait(0.1)
+            -- task.wait(0.1)
         end
-        task.wait(0.1)
+        -- task.wait(0.1)
     end
     return cometsFound
 end
 
 function TeleportToArea(area)
-    task.spawn(function()
-        task.wait(0.1)
-        set_thread_identity(2)
-        tp.Teleport(area)
-    end)
+    set_thread_identity(2)
+    tp.Teleport(area)
+    set_thread_identity(7)
 end
 
 function FarmCoin(CoinID, PetID)
@@ -301,9 +299,9 @@ function AutoCollectFreeGifts()
                     Invoke("Redeem Free Gift", i)
                     task.wait(1.2)
                 end
-            else
-                print("Free gifts aren't ready to collect...")
-                task.wait(60)
+            -- else
+            --     print("Free gifts aren't ready to collect...")
+            --     task.wait(60)
             end
         end
     end)
@@ -311,21 +309,25 @@ end
 
 function ProcessComet(comet)
     local cometArea = tostring(comet["AreaId"])
-    print("Teleporting to comet: " .. cometArea)
 
     -- print comet data
     for i, v in pairs(comet) do
-        task.wait(0.1)
+        -- task.wait(0.1)
         print(i, v)
     end
 
+    -- wait until localplayer rootpart is valid
+    print("Waiting for localplayer rootpart to be valid.")
+    repeat task.wait() until game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
     -- teleport to the comet's area
+    print("Teleporting to comet: " .. cometArea)
     TeleportToArea(cometArea)
 
     -- get coin data for area
     local cometCoinObjects = GetComets(cometArea)
     for i = 1, #cometCoinObjects do
-        task.wait(0.1)
+        -- task.wait(0.1)
         if not _coins:FindFirstChild(cometCoinObjects[i].index) then
             continue
         end
@@ -334,10 +336,11 @@ function ProcessComet(comet)
 
         local myPets = GetMyPets()
         for _, pet in pairs(myPets) do
-            task.wait(0.1)
+            -- task.wait(0.1)
             print("pet loop, idx: " .. tostring(_))
             FarmCoin(cometCoinObjects[i].index, pet.uid)
         end
+        print("Waiting for coin to be destroyed and all lootbags to be collected.")
         repeat task.wait(1) until not _coins:FindFirstChild(cometCoinObjects[i].index) and #GetLootBags() == 0 and #GetOrbs() == 0
         -- Increment the cometsFound counter and save to the file.
         canServerHop = false
@@ -510,8 +513,8 @@ function main()
     -- Make sure we load into the server or hop otherwise.
     EnsureServerLoads()
     print("Game loaded")
+    -- Disable 3d rendering.
     print("Disabling 3D Rendering to save cpu.")
-    -- Disable 3d rendering if it's enabled.
     RunService:Set3dRenderingEnabled(false)
     -- Flag so we don't hop while trying to write to a file or similar.
     canServerHop = true
@@ -566,9 +569,10 @@ function main()
 
     task.spawn(function()
         print("Spawning thread to run the main loop")
-        while task.wait(1) do
+        while task.wait() do
+            print("main loop")
             comets = GetCometData()
-            if #comets == 0 then
+            if #comets == 0 then    
                 -- Mail diamonds if needed while theres no comet to farm.
                 local diamonds = GetPlayerCash("Diamonds")
                 if tonumber(diamonds) > 100000000000 then
@@ -594,7 +598,7 @@ function main()
                 else
                     print("Comet already destroyed.")
                 end
-                task.wait(0.1)
+                -- task.wait(0.1)
             end
         end
     end)

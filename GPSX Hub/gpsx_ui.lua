@@ -74,8 +74,8 @@ function createGUI(group, areas, petLookupTable)
     -- Auto farm area dropdown
     AutoFarmGroupBox:AddDropdown("FarmAreaDropdown", {
         Values = areas,
-        Default = "Town",
-        Multi = false,
+        Default = {"Paradise Cave", "Cyber Cavern"},
+        Multi = true,
         Text = "Auto Farm Area",
         Tooltip = "Area to auto farm in.",
     })

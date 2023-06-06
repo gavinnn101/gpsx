@@ -11,8 +11,13 @@ local RunService = game:GetService("RunService")
 getgenv().settings = {
     fruitFarm = {
         FARM_FRUIT = true, -- Will farm fruit before farming mystic mine. 
-        ORANGES_TO_FARM_TO = 150, -- Will farm fruit until we have this many oranges.
-        MINIMUM_ORANGES = 100, -- Will go back to fruit farm if we have less than this many oranges.
+        ORANGES_TO_FARM_TO = 200, -- Will farm fruit until we have this many oranges. 200 is the max you can get in-game.
+        MINIMUM_ORANGES = 150, -- Will go back to fruit farm if we have less than this many oranges.
+    },
+
+    autoBoost = {
+        AUTO_TRIPLE_DAMAGE = true, -- Automatically uses triple damage if it's not already active.
+        AUTO_SERVER_TRIPLE_DAMAGE = true, -- Automatically uses server triple damage if it's not already active.
     },
 
     platforms = {
@@ -37,7 +42,7 @@ getgenv().settings = {
     },
 
     muleGems = {
-        MULE_GEMS = true, -- Mule gems to the main account.
+        MULE_GEMS = false, -- Mule gems to the main account.
         MULE_GEMS_THRESHOLD = 100000000000, -- Mule gems when we have more than this many. Default 100b.
         MAIL_RECIPIENT = "gavinnn1000", -- Account to mule gems to.
     },
@@ -50,6 +55,224 @@ getgenv().settings = {
 
 -- Define full path to data file.
 getgenv().settings.dataObjects.DATA_FILE_PATH = getgenv().settings.dataObjects.DATA_FOLDER_NAME .. "/" .. getgenv().settings.dataObjects.DATA_FILE_NAME
+
+fileOperationInProgress = false
+
+function SafeWriteFile(filename, content)
+    local ret = nil
+    repeat task.wait(0.1) until not fileOperationInProgress
+    fileOperationInProgress = true
+
+    local success, err = pcall(function()
+        writefile(filename, content)
+    end)
+
+    if not success then
+        print("An error occurred while writing to the file: ".. err)
+        ret = false
+    else
+        ret = true
+    end
+    fileOperationInProgress = false
+    return ret
+end
+
+function SafeReadFile(filename)
+    local ret = nil
+    repeat task.wait(0.1) until not fileOperationInProgress
+    fileOperationInProgress = true
+
+    local success, resultOrErr = pcall(function()
+        return readfile(filename)
+    end)
+
+    if not success then
+        print("An error occurred while reading the file: ".. resultOrErr)
+        ret = nil
+    else
+        ret = resultOrErr
+    end
+    fileOperationInProgress = false
+    return ret
+end
+
+function countTable(tbl)
+    local count = 0
+    for _ in pairs(tbl) do
+        count = count + 1
+    end
+    return count
+end
+
+function CacheServerList()
+    local CACHE_EVERY_SECONDS = 120
+    task.spawn(function()
+        print("Thread spawned for caching server list to file.")
+        while task.wait(10) do
+            local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+            if not file or (tick() - file.serverListCacheTime) > CACHE_EVERY_SECONDS then
+                print("Getting new server list.")
+
+                local cursor = nil
+                local pagesTraversed = 0
+                local MIN_PAGES = 5  -- Modify this to change the minimum number of pages to traverse
+                repeat
+                    local success, result = pcall(function()
+                        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100&cursor=" .. (cursor or "")))
+                    end)
+
+                    if success then
+                        if pagesTraversed < MIN_PAGES or (math.random() < 0.5 and result.nextPageCursor) then  -- Traverse at least MIN_PAGES pages and then have a 50% chance to continue
+                            cursor = result.nextPageCursor
+                            pagesTraversed = pagesTraversed + 1
+                        else
+                            cursor = nil  -- Stop following the cursor and use this page of results
+                            file.serverList = result.data
+                            file.serverListCacheTime = tick()
+                            -- Reset the visited servers when getting a new server list.
+                            file.visitedServers = {}
+                            SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
+                            print("Wrote new server list to file.")
+                        end
+                    else
+                        print("Failed to get server list. HTTP request unsuccessful or JSON could not be parsed.")
+                    end
+                until cursor == nil
+            end
+        end
+    end)
+end
+
+function HopToNewServer()
+    -- Load the data from the file into a local variable.
+    local fileData = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+
+    -- Make sure CacheServerList has created an initial list before hopping.
+    if not fileData.serverList or #fileData.serverList == 0 then
+        print("Waiting for valid server list data before hopping.")
+        return
+    end
+
+    print("Got server list data. Continuing to hop.")
+    print("Server list length: ", #fileData.serverList)
+
+    -- Print the length of visitedServers
+    print("Visited servers count: ", countTable(fileData.visitedServers))
+
+    for _, v in ipairs(fileData.serverList) do
+        if v.playing ~= v.maxPlayers and not fileData.visitedServers[v.id] then
+            -- Add the server id to the visited servers.
+            fileData.visitedServers[v.id] = true
+
+            -- Write the updated data to the file before teleport since this is where our script will lose state.
+            SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
+
+            print("Teleporting to server: ", v.id)
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+            repeat task.wait(0.1) until not game:IsLoaded()
+        end
+    end
+end
+
+function EnsureServerLoads()
+    -- Server hop if we get stuck in the load screen. This solves error code 279.
+    print("Waiting for game to load... (EnsureServerLoads)")
+    local success, errorMsg = pcall(function()
+        local timer = 60
+        while task.wait(1) and timer > 0 and not game:IsLoaded() do
+            timer = timer - 1
+        end
+        if timer == 0 then
+            print("Timed out loading into server. Hopping to a new server.")
+            HopToNewServer()
+        end
+    end)
+
+    if not success then
+        print("Error occurred: ", errorMsg)
+        HopToNewServer()
+    end
+end
+
+function StartSession()
+    if not isfolder(getgenv().settings.dataObjects.DATA_FOLDER_NAME) then
+        print("Creating gpsx folder.")
+        makefolder(getgenv().settings.dataObjects.DATA_FOLDER_NAME)
+    end
+    local file
+    if isfile(getgenv().settings.dataObjects.DATA_FILE_PATH) then
+        file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+
+        -- Print out the lastActiveTime and sessionStartTime values for debugging.
+        print("Current lastActiveTime: " .. file.lastActiveTime)
+        print("Current sessionStartTime: " .. file.sessionStartTime)
+
+        local currentTime = os.time()
+        local idleTime = os.difftime(currentTime, file.lastActiveTime)
+
+        -- Print out the idleTime.
+        print("Idle time: " .. idleTime)
+
+        -- If the last activity was over 5 minutes ago (300 seconds), start a new session.
+        if idleTime > 300 then
+            print("Starting new session.")
+            file.sessionStartTime = currentTime
+            -- Reset the session-specific stats.
+            file.totalDiamondsEarned = 0
+            file.sessionStartRealTime = currentTime
+        else
+            print("Continuing existing session.")
+        end
+        file.lastActiveTime = currentTime
+    else
+        local currentTime = os.time()
+        file = {
+            sessionStartTime = currentTime,
+            lastActiveTime = currentTime,
+            serverListCacheTime = 0,
+            serverList = {},
+            visitedServers = {},
+            totalDiamondsEarned = 0,
+            sessionStartRealTime = currentTime,
+        }
+        print("Starting new session.")
+    end
+    SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
+    repeat task.wait(1) until isfile(getgenv().settings.dataObjects.DATA_FILE_PATH)
+    print("StartSession wrote content to " ..getgenv().settings.dataObjects.DATA_FILE_PATH)
+end
+
+function HopOnErrorPrompt()
+    -- hop to a new server if we get an error prompt
+    task.spawn(function()
+        print("Thread spawned for hopping on error prompt.")
+        while task.wait(5) do
+            if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
+                print("Error prompt detected. Hopping to a new server.")
+                task.wait(5)
+                HopToNewServer()
+            end
+        end
+    end)
+end
+
+function CheckServerTimeout()
+    local serverJoinTime = tick()
+    task.spawn(function()
+        print("Thread spawned for hopping after being in server for too long.")
+        while task.wait(5) do
+            -- Change to a new server if we've been in the current one for over serverTimeout.
+            if (tick() - serverJoinTime) >= getgenv().settings.serverHop.TIMEOUT_THRESHOLD then
+                print("Timeout reached. Hopping to a new server.")
+                HopToNewServer()
+                serverJoinTime = tick()
+            -- else
+            --     -- print time remaining until timeout
+            --     print("Timeout in: " .. tostring(serverTimeout - (tick() - serverJoinTime)))
+            end
+        end
+    end)
+end
 
 function UnlockTeleports()
     Lib.Gamepasses.Owns = function() return true end
@@ -77,7 +300,7 @@ function FarmCoin(CoinID, PetID)
     Fire("Farm Coin", CoinID, PetID)
 end
 
---returns all coins within the given area (area must be a table of conent)
+--returns all coins within the given area
 function GetCoins(area)
     local coinTable = {}
     local listCoins = Invoke("Get Coins")
@@ -95,64 +318,73 @@ function coinExists(coinIndex)
     return Workspace["__THINGS"].Coins:FindFirstChild(coinIndex) ~= nil
 end
 
-function farmMysticMine()
-    local selectedAreas = {"Mystic Mine"}
-    local myPets = GetMyPets()
-    if myPets == nil then
-        print("No equipped pets found.")
-        return
-    end
-
-    for _,selectedArea in ipairs(selectedAreas) do  -- Iterate through each selected area
-        task.wait(0.1)
-        print("Looking for coins in area: " .. selectedArea)
-        local coins = GetCoins(selectedArea)
-
-        if #coins == 0 then
-            if #GetLootBags() == 0 and #GetOrbs() == 0 then
-                print("No coins found in area: " .. selectedArea)
-                -- print total session time
-                printSessionTime()
-                -- Update total diamonds earned for session
-                updateTotalDiamondsEarned()
-                -- print total diamonds earned
-                printTotalDiamondsEarned()
-                if getgenv().settings.serverHop.SERVER_HOP then
-                    print("Hopping servers (farmMysticMine)")
-                    HopToNewServer()
-                end
-                return
-            end
-        else
-            for i = 1, #coins do
-                if coinExists(coins[i].index) then
-                    print("Found child coin, idx: " .. coins[i].index)
-
-                    for _, pet in pairs(myPets) do
+function farmMysticMine(coinTable, equippedPets)
+    local remainingCoins = coinTable
+    if #remainingCoins > 0 then
+        -- Only use potions on server triple damage if are coins to farm.
+        if getgenv().settings.autoBoost.AUTO_SERVER_TRIPLE_DAMAGE then
+            AutoServerTripleDamage()
+        end
+        while #remainingCoins > 0 do
+            for i = #remainingCoins, 1, -1 do -- Iterating backwards to safely remove elements
+                local coin = remainingCoins[i]
+                if coinExists(coin.index) then
+                    print("Found child coin, idx: " .. coin.index)
+    
+                    for _, pet in pairs(equippedPets) do
                         print("Pet loop, idx: " .. tostring(_))
                         task.spawn(function()
-                            FarmCoin(coins[i].index, pet.uid)
+                            FarmCoin(coin.index, pet.uid)
                         end)
                     end
-
-                    print("Waiting for coin to break (idx: " .. coins[i].index .. ")")
-
+    
+                    print("Waiting for coin to break (idx: " .. coin.index .. ")")
+    
                     local startTime = os.time()  -- Record the start time
                     repeat
                         task.wait()
-                    until not coinExists(coins[i].index) or os.time() - startTime >= 30
-
-                    if coinExists(coins[i].index) then
-                        print("Coin still exists after timeout (idx: " .. coins[i].index .. ")")
+                    until not coinExists(coin.index) or os.time() - startTime >= 30
+    
+                    if coinExists(coin.index) then
+                        print("Coin still exists after timeout (idx: " .. coin.index .. ")")
+                        table.remove(remainingCoins, i) -- remove coin from list
                     else
-                        print("Coin broken (idx: " .. coins[i].index .. ")")
+                        print("Coin broken (idx: " .. coin.index .. ")")
+                        table.remove(remainingCoins, i) -- remove coin from list
                     end
+                else
+                    print("Coin doesn't exist anymore (idx: " .. coin.index .. ")")
+                    table.remove(remainingCoins, i) -- remove coin from list
                 end
             end
         end
     end
+    if #remainingCoins == 0 then
+        print("No more coins to farm in area: Mystic Mine.")
+        print("Checking if we have lootbags or orbs to gather.")
+        local lootBagAmount = #GetLootBags()
+        local orbAmount = #GetOrbs()
+        if lootBagAmount == 0 and orbAmount == 0 then
+            print("No lootbags or orbs found in area: Mystic Mine.")
+            print("Printing session stats and server hopping.")
+            -- print total session time
+            printSessionTime()
+            -- Update total diamonds earned for session
+            updateTotalDiamondsEarned()
+            -- print total diamonds earned
+            printTotalDiamondsEarned()
+            if getgenv().settings.serverHop.SERVER_HOP then
+                print("Hopping servers (farmMysticMine)")
+                HopToNewServer()
+            else
+                print("Server hopping disabled, returning true to get a new coin list.")
+                return true
+            end
+        else
+            print("No more coins, but still gathering " .. lootBagAmount .. " lootbags and " .. orbAmount .. " orbs in area: Mystic Mine.")
+        end
+    end
 end
-
 
 -- Returns table of lootbags
 function GetLootBags()
@@ -167,15 +399,15 @@ function GetOrbs()
 end
 
 function AutoCollectLootBags()
-    task.spawn(function()
-        while task.wait(0.1) and game:IsLoaded() do
-            local lootbags = GetLootBags()
-            for _, v in ipairs(lootbags) do
-                task.wait(0.1)
-                v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
-            end
-        end
-    end)
+    -- task.spawn(function()
+    --     while task.wait(0.1) and game:IsLoaded() do
+    --         local lootbags = GetLootBags()
+    --         for _, v in ipairs(lootbags) do
+    --             task.wait(0.1)
+    --             v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
+    --         end
+    --     end
+    -- end)
 
     Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
         Fire("Collect Lootbag", v.Name, v.Position)
@@ -183,15 +415,15 @@ function AutoCollectLootBags()
 end
 
 function AutoCollectOrbs()
-    task.spawn(function()
-        while task.wait(0.1) and game:IsLoaded() do
-            local orbs = GetOrbs()
-            for _, v in ipairs(orbs) do
-                task.wait(0.1)
-                v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
-            end
-        end
-    end)
+    -- task.spawn(function()
+    --     while task.wait(0.1) and game:IsLoaded() do
+    --         local orbs = GetOrbs()
+    --         for _, v in ipairs(orbs) do
+    --             task.wait(0.1)
+    --             v.CFrame = localPlayer.Character.HumanoidRootPart.CFrame
+    --         end
+    --     end
+    -- end)
 
     Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
         Fire("Claim Orbs", {v.Name})
@@ -200,10 +432,11 @@ end
 
 function AutoTripleDamage()
     task.spawn(function()
-        while task.wait(1) and game:IsLoaded() do
+        print("Thread spawned: AutoTripleDamage")
+        while task.wait(1) do
             -- activate triple damage "potion" if not already active
             local Save = Lib.Save.Get()
-            if Save["Boosts"]["Triple Damage"] == nil or Save["Boosts"]["Triple Damage"] < 60 then
+            if Save["Boosts"]["Triple Damage"] == nil or Save["Boosts"]["Triple Damage"] < 5 then
                 print("Activating triple damage")
                 Fire("Activate Boost", "Triple Damage")
             end
@@ -211,22 +444,45 @@ function AutoTripleDamage()
     end)
 end
 
-function AutoTripleCoins()
+function GetServerBoostData()
+    local activeBoostsData = {}
+    local activeBoosts = Lib.ServerBoosts.GetActiveBoosts()
+
+    -- Names are in order: "Insane Luck table", "Triple Coins table", "Super Lucky table", "Triple Damage table"
+    for boostName, boostTable in pairs(activeBoosts) do
+        -- print("Boost name: " ..boostName)
+        -- print("Boost table: " ..tostring(boostTable))
+        for _, timeRemaining in pairs(boostTable) do
+            print(timeRemaining)
+            activeBoostsData[boostName] = timeRemaining
+        end
+    end
+    return activeBoostsData
+end
+
+function UseServerBoost(boostName)
+    print("Using server boost: " .. boostName)
+    Fire("Activate Server Boost", boostName)
+end
+
+function AutoServerTripleDamage()
     task.spawn(function()
-        while task.wait(1) and game:IsLoaded() do
-            -- activate triple coins "potion" if not already active
-            local Save = Lib.Save.Get()
-            if Save["Boosts"]["Triple Coins"] == nil or Save["Boosts"]["Triple Coins"] < 60 then
-                print("Activating triple coins")
-                Fire("Activate Boost", "Triple Coins")
+        print("Thread spawned: AutoServerTripleDamage")
+        while task.wait(1) do
+            local serverBoostData = GetServerBoostData()
+            if not serverBoostData["Triple Damage"] or serverBoostData["Triple Damage"] < 5 then
+                print("Activating server triple damage.")
+                UseServerBoost("Triple Damage")
             end
+            task.wait(5)
         end
     end)
 end
 
 function AutoCollectFreeGifts()
     task.spawn(function()
-        while task.wait(1) and game:IsLoaded() do
+        print("Thread spawned: AutoCollectFreeGifts")
+        while task.wait(1) do
             -- print("Checking for free gifts...")
             local txt = localPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
             if txt == "Ready!" then
@@ -429,213 +685,27 @@ function MailDiamonds()
     end
 end
 
-function SafeWriteFile(filename, content)
-    local ret = nil
-    canServerHop = false
-
-    local success, err = pcall(function()
-        writefile(filename, content)
-    end)
-
-    if not success then
-        print("An error occurred while writing to the file: ".. err)
-        ret = false
-    else
-        ret = true
-    end
-    canServerHop = true
-    return ret
-end
-
-function SafeReadFile(filename)
-    local ret = nil
-    canServerHop = false
-
-    local success, resultOrErr = pcall(function()
-        return readfile(filename)
-    end)
-
-    if not success then
-        print("An error occurred while reading the file: ".. resultOrErr)
-        ret = nil
-    else
-        ret = resultOrErr
-    end
-    canServerHop = true
-    return ret
-end
-
-function CacheServerList()
-    task.spawn(function()
-        print("Thread spawned for caching server list to file.")
-        while task.wait(10) do
-            local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
-            if not file or (tick() - file.serverListCacheTime) > 60 then
-                canServerHop = false
-                print("Getting new server list.")
-                local success, servers = pcall(function()
-                    return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
-                end)
-                -- Only update the file if the HTTP request is successful and JSON can be parsed.
-                if success then
-                    file.serverList = servers
-                    file.serverListCacheTime = tick()
-                    -- Reset the visited servers when getting a new server list.
-                    file.visitedServers = {}
-                    SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
-                    print("Wrote new server list to file.")
-                    canServerHop = true
-                else
-                    print("Failed to get server list. HTTP request unsuccessful or JSON could not be parsed.")
-                end
-            -- else
-            --     local timeLeft = 60 - (tick() - file.serverListCacheTime)
-            --     print("Server list is still cached. Will refresh in " .. timeLeft .. " seconds.")
-            end
-        end
-    end)
-end
-
-function HopToNewServer()
-    -- Make sure CacheServerList has created an initial list before hopping.
-    print("Waiting for valid server list data before hopping")
-    repeat task.wait(0.1) until HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH)).serverList.data
-    print("Got server list data. Continuing to hop.")
-    local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
-    print("Server list length: ", #file.serverList.data)
-    for i,v in pairs(file.serverList.data) do
-      if v.playing ~= v.maxPlayers and not file.visitedServers[v.id] then
-        -- Add the server id to the visited servers.
-        file.visitedServers[v.id] = true
-        SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
-        print("teleporting to server: ", v.id)
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-        repeat task.wait(0.1) until game:IsLoaded()
-        return
-      end
-      task.wait(0.1)
-    end
-end
-
-function EnsureServerLoads()
-    -- Server hop if we get stuck in the load screen. This solves error code 279.
-    print("Waiting for game to load... (EnsureServerLoads)")
-    local success, errorMsg = pcall(function()
-        local timer = 60
-        while task.wait(1) and timer > 0 and not game:IsLoaded() do
-            timer = timer - 1
-        end
-        if timer == 0 then
-            print("Timed out loading into server. Hopping to a new server.")
-            HopToNewServer()
-        end
-    end)
-
-    if not success then
-        print("Error occurred: ", errorMsg)
-        HopToNewServer()
-    end
-end
-
-function StartSession()
-    if not isfolder(getgenv().settings.dataObjects.DATA_FOLDER_NAME) then
-        print("Creating gpsx folder.")
-        makefolder(getgenv().settings.dataObjects.DATA_FOLDER_NAME)
-    end
-    local file
-    if isfile(getgenv().settings.dataObjects.DATA_FILE_PATH) then
-        file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
-
-        -- Print out the lastActiveTime and sessionStartTime values for debugging.
-        print("Current lastActiveTime: " .. file.lastActiveTime)
-        print("Current sessionStartTime: " .. file.sessionStartTime)
-
-        local currentTime = os.time()
-        local idleTime = os.difftime(currentTime, file.lastActiveTime)
-
-        -- Print out the idleTime.
-        print("Idle time: " .. idleTime)
-
-        -- If the last activity was over 5 minutes ago (300 seconds), start a new session.
-        if idleTime > 300 then
-            print("Starting new session.")
-            file.sessionStartTime = currentTime
-            -- Reset the session-specific stats.
-            file.totalDiamondsEarned = 0
-            file.sessionStartRealTime = currentTime
-        else
-            print("Continuing existing session.")
-        end
-        file.lastActiveTime = currentTime
-    else
-        local currentTime = os.time()
-        file = {
-            sessionStartTime = currentTime,
-            lastActiveTime = currentTime,
-            serverListCacheTime = 0,
-            serverList = {},
-            visitedServers = {},
-            totalDiamondsEarned = 0,
-            sessionStartRealTime = currentTime,
-        }
-        print("Starting new session.")
-    end
-    SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
-    repeat task.wait(1) until isfile(getgenv().settings.dataObjects.DATA_FILE_PATH)
-    print("StartSession wrote content to " ..getgenv().settings.dataObjects.DATA_FILE_PATH)
-end
-
-
-function HopOnErrorPrompt()
-    -- hop to a new server if we get an error prompt
-    task.spawn(function()
-        print("Thread spawned for hopping on error prompt.")
-        while task.wait(5) do
-            if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
-                print("Error prompt detected. Hopping to a new server.")
-                task.wait(5)
-                HopToNewServer()
-            end
-        end
-    end)
-end
-
-function CheckServerTimeout()
-    local serverJoinTime = tick()
-    task.spawn(function()
-        print("Thread spawned for hopping after being in server for too long.")
-        while task.wait(5) do
-            -- Change to a new server if we've been in the current one for over serverTimeout.
-            if (tick() - serverJoinTime) >= getgenv().settings.serverHop.TIMEOUT_THRESHOLD then
-                print("Timeout reached. Hopping to a new server.")
-                HopToNewServer()
-                serverJoinTime = tick()
-            -- else
-            --     -- print time remaining until timeout
-            --     print("Timeout in: " .. tostring(serverTimeout - (tick() - serverJoinTime)))
-            end
-        end
-    end)
-end
-
 function isPlayerValid()
-    local character = game.Players.LocalPlayer.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        return true
-    else
-        return false
+    local character = localPlayer.Character
+    if character then
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local position = humanoid.RootPart.Position
+            if position then
+                return true
+            end
+        end
     end
+    return false
 end
 
 function updateTotalDiamondsEarned()
-    canServerHop = false
     local diamondsEarned = GetPlayerCash("Diamonds") - startDiamonds
 
     local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
     local totalDiamonedEarned = file.totalDiamondsEarned or 0 -- in case the variable isnt alreay in the file.
     file.totalDiamondsEarned = totalDiamonedEarned + diamondsEarned
     SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
-    canServerHop = true
 end
 
 function printTotalDiamondsEarned()
@@ -674,12 +744,10 @@ end
 function UpdateCheckInTime()
     task.spawn(function()
         while task.wait(10) do
-            canServerHop = false
             local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
             file.lastActiveTime = os.time()
             SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
             print("Wrote new last active time: " ..file.lastActiveTime .." to file: " ..getgenv().settings.dataObjects.DATA_FILE_PATH)
-            canServerHop = true
         end
     end)
 end
@@ -705,6 +773,18 @@ function main()
     EnsureServerLoads()
     print("Game loaded")
 
+    if getgenv().settings.serverHop.SERVER_HOP then
+        -- Start thread to handle getting a fresh server list
+        CacheServerList()
+        -- Tracks session stats in a json file
+        StartSession()
+        -- Hop servers if we get an error prompt (error 277, 279, etc)
+        HopOnErrorPrompt()
+        if getgenv().settings.serverHop.HOP_ON_TIMEOUT then
+            CheckServerTimeout()
+        end
+    end
+
     -- Thread to update check-in time every minute.
     UpdateCheckInTime()
 
@@ -722,6 +802,7 @@ function main()
     end)
 
     localPlayer = Players.LocalPlayer
+    repeat task.wait() until isPlayerValid()
     tp = getsenv(localPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 
     if not getgenv().settings.resourceSavers.ENABLE_3D_RENDERING then
@@ -730,27 +811,15 @@ function main()
         RunService:Set3dRenderingEnabled(getgenv().settings.resourceSavers.ENABLE_3D_RENDERING)
     end
 
-    if getgenv().settings.serverHop.SERVER_HOP then
-        -- Start thread to handle getting a fresh server list
-        CacheServerList()
-        -- Flag so we don't hop while trying to write to a file or similar.
-        canServerHop = true
-        -- Tracks session stats in a json file
-        StartSession()
-        -- Hop servers if we get an error prompt (error 277, 279, etc)
-        HopOnErrorPrompt()
-        if getgenv().settings.serverHop.HOP_ON_TIMEOUT then
-            CheckServerTimeout()
-        end
-    end
-
     -- Auto loot orbs / lootbags
     AutoCollectLootBags()
     AutoCollectOrbs()
 
-    -- Auto triple damage / coins
-    AutoTripleDamage()
-    AutoTripleCoins()
+    -- Auto triple damage / server triple damage
+    if getgenv().settings.autoBoost.AUTO_TRIPLE_DAMAGE then
+        AutoTripleDamage()
+    end
+
     -- Auto collect free gifts
     AutoCollectFreeGifts()
     -- Unlock teleports to get to mystic mine / pixel vault / etc.
@@ -773,8 +842,9 @@ function main()
         end
         -- Farm fruit / oranges before diamond farming if enabled.
         if getgenv().settings.fruitFarm.FARM_FRUIT and getOrangeCount() < getgenv().settings.fruitFarm.MINIMUM_ORANGES then
+            print("Teleporting to pixel vault for fruit farming.")
             if currentArea ~= "Pixel Vault" and isPlayerValid() then
-                task.wait(1)
+                task.wait(3)
                 TeleportToArea("Pixel Vault")
                 if getgenv().settings.platforms.CREATE_PLATFORMS then
                     task.wait(1)
@@ -791,7 +861,8 @@ function main()
         end
         -- Teleport to mystic mine if needed then farm diamonds.
         if currentArea ~= "Mystic Mine" and isPlayerValid() then
-            task.wait(1)
+            print("Teleporting to mystic mine for diamond farming.")
+            task.wait(3)
             -- Teleport to farm area.
             TeleportToArea("Mystic Mine")
             task.wait(1)
@@ -807,8 +878,18 @@ function main()
             end
             currentArea = "Mystic Mine"
         end
+        -- Get mystic mine coins
+        print("Looking for coins in area: Mystic Mine.")
+        local initialCoins = GetCoins("Mystic Mine")
+        print("Found " .. #initialCoins .. " coins in area: Mystic Mine.")
+        -- Get equipped pets to farm with.
+        local myPets = GetMyPets()
+        if myPets == nil then
+            print("No equipped pets found.")
+            return
+        end
         -- Farm mystic mine if we don't need to farm fruit.
-        farmMysticMine()
+        farmMysticMine(initialCoins, myPets)
     end
 end
 
