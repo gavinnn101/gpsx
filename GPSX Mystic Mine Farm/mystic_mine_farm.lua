@@ -18,6 +18,7 @@ getgenv().settings = {
     autoBoost = {
         AUTO_TRIPLE_DAMAGE = true, -- Automatically uses triple damage if it's not already active.
         AUTO_SERVER_TRIPLE_DAMAGE = true, -- Automatically uses server triple damage if it's not already active.
+        AUTO_TRIPLE_DIAMONDS = false, -- Automatically uses triple diamonds if it's not already active.
     },
 
     platforms = {
@@ -29,7 +30,8 @@ getgenv().settings = {
     serverHop = {
         SERVER_HOP = true, -- Server hop if the farm area runs out of coins.
         HOP_ON_TIMEOUT = true, -- Server hop if we've been in the same server for over TIMEOUT_THRESHOLD seconds.
-        TIMEOUT_THRESHOLD = 600, -- Set the timeout duration in seconds
+        TIMEOUT_THRESHOLD = 600, -- Hop if we've been in the server for this long, if HOP_ON_TIMEOUT is enabled.
+        MAX_PLAYERS_IN_SERVER = 3, -- Only hop to the server if there are this many players or less in the server. (# of players could have changes since we got the data.)
     },
 
     resourceSavers = {
@@ -58,6 +60,11 @@ getgenv().settings = {
 getgenv().settings.dataObjects.DATA_FILE_PATH = getgenv().settings.dataObjects.DATA_FOLDER_NAME .. "/" .. getgenv().settings.dataObjects.DATA_FILE_NAME
 
 fileOperationInProgress = false
+
+-- We send the progress report webhook right before attempting to server hop but there's no way to know for sure
+-- that the server hop will be successful; meaning it might retry and send the webhook multiple times.
+-- We'll set this flag when the webhook is sent and it wont send again until the script is reran.
+progressReportWebhookSent = false
 
 function SafeWriteFile(filename, content)
     local ret = nil
@@ -105,6 +112,53 @@ function countTable(tbl)
     return count
 end
 
+function FetchServerList()
+    local cursor = nil
+    local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+    file.serverList = {}  -- Initialize an empty server list
+    local currentPlaying = 0
+    local seenPageForCurrentPlaying = false
+    repeat
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100&cursor=" .. (cursor or "")))
+        end)
+
+        if success then
+            if #result.data > 0 and result.data[1].playing <= getgenv().settings.serverHop.MAX_PLAYERS_IN_SERVER then
+                if result.data[1].playing ~= currentPlaying then
+                    -- We've moved to the next page with a different player count.
+                    currentPlaying = result.data[1].playing
+                    seenPageForCurrentPlaying = false
+                elseif seenPageForCurrentPlaying then
+                    -- Add servers from this page if we've already seen at least one page for the current player count.
+                    for _, v in ipairs(result.data) do
+                        table.insert(file.serverList, v)
+                        if #file.serverList >= 100 then
+                            break
+                        end
+                    end
+                else
+                    -- We've seen the first page for the current player count, but don't add servers yet.
+                    seenPageForCurrentPlaying = true
+                end
+                cursor = result.nextPageCursor
+            else
+                cursor = nil  -- If we're out of range or the page is not full, stop the loop
+            end
+        else
+            print("Failed to get server list. HTTP request unsuccessful or JSON could not be parsed.")
+        end
+    until cursor == nil or #file.serverList >= 100  -- Also stop the loop if we've reached the desired number of servers
+
+    if #file.serverList > 0 then
+        file.serverListCacheTime = tick()
+        -- Reset the visited servers when getting a new server list.
+        file.visitedServers = {}
+        SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
+        print("Wrote new server list to file.")
+    end
+end
+
 function CacheServerList()
     local CACHE_EVERY_SECONDS = 600
     task.spawn(function()
@@ -113,32 +167,7 @@ function CacheServerList()
             local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
             if not file or (tick() - file.serverListCacheTime) > CACHE_EVERY_SECONDS then
                 print("Getting new server list.")
-
-                local cursor = nil
-                local pagesTraversed = 0
-                local MIN_PAGES = 10  -- Modify this to change the minimum number of pages to traverse
-                repeat
-                    local success, result = pcall(function()
-                        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100&cursor=" .. (cursor or "")))
-                    end)
-
-                    if success then
-                        if pagesTraversed < MIN_PAGES or (math.random() < 0.5 and result.nextPageCursor) then  -- Traverse at least MIN_PAGES pages and then have a 50% chance to continue
-                            cursor = result.nextPageCursor
-                            pagesTraversed = pagesTraversed + 1
-                        else
-                            cursor = nil  -- Stop following the cursor and use this page of results
-                            file.serverList = result.data
-                            file.serverListCacheTime = tick()
-                            -- Reset the visited servers when getting a new server list.
-                            file.visitedServers = {}
-                            SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
-                            print("Wrote new server list to file.")
-                        end
-                    else
-                        print("Failed to get server list. HTTP request unsuccessful or JSON could not be parsed.")
-                    end
-                until cursor == nil
+                FetchServerList()
             end
         end
     end)
@@ -161,7 +190,8 @@ function HopToNewServer()
     print("Visited servers count: ", countTable(fileData.visitedServers))
 
     for _, v in ipairs(fileData.serverList) do
-        if v.playing ~= v.maxPlayers and not fileData.visitedServers[v.id] then
+        -- we'll try only joining low population servers to avoid an empty Mystic Mine.
+        if v.playing <= getgenv().settings.serverHop.MAX_PLAYERS_IN_SERVER and not fileData.visitedServers[v.id] then
             -- Add the server id to the visited servers.
             fileData.visitedServers[v.id] = true
 
@@ -169,15 +199,29 @@ function HopToNewServer()
             SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
 
             if getgenv().settings.webhook.PROGRESS_REPORT_WEBHOOK_ENABLED then
-                print("Sending progress report webhook before server hop.")
-                progressReportWebhook()
+                -- Only send the progress report webhook once in case the server hop fails.
+                if not progressReportWebhookSent then
+                    print("Sending progress report webhook before server hop.")
+                    progressReportWebhook()
+                    progressReportWebhookSent = true
+                end
             end
 
             print("Teleporting to server: ", v.id)
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-            repeat task.wait(0.1) until not game:IsLoaded()
+            local success, message = pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+            end)
+
+            if not success then
+                print("Failed to teleport to server: ", message)
+            end
+            task.wait(5)
+            return
         end
     end
+    -- Cache a new server list if we didn't find any that meet our criteria.
+    print("No suitable server found. Fetching a new server list.")
+    FetchServerList()
 end
 
 function EnsureServerLoads()
@@ -327,9 +371,18 @@ end
 function farmMysticMine(coinTable, equippedPets)
     local remainingCoins = coinTable
     if #remainingCoins > 0 then
-        -- Only use potions on server triple damage if are coins to farm.
+        -- Only use potions if there are coins to farm.
+        -- Auto triple damage boost
+        if getgenv().settings.autoBoost.AUTO_TRIPLE_DAMAGE then
+            AutoTripleDamage()
+        end
+        -- Auto server triple damage boost
         if getgenv().settings.autoBoost.AUTO_SERVER_TRIPLE_DAMAGE then
             AutoServerTripleDamage()
+        end
+        -- Auto triple diamonds boost
+        if getgenv().settings.autoBoost.AUTO_TRIPLE_DIAMONDS then
+            AutoTripleDiamonds()
         end
         while #remainingCoins > 0 do
             for i = #remainingCoins, 1, -1 do -- Iterating backwards to safely remove elements
@@ -459,7 +512,7 @@ function GetServerBoostData()
         -- print("Boost name: " ..boostName)
         -- print("Boost table: " ..tostring(boostTable))
         for _, timeRemaining in pairs(boostTable) do
-            print(timeRemaining)
+            -- print(timeRemaining)
             activeBoostsData[boostName] = timeRemaining
         end
     end
@@ -481,6 +534,20 @@ function AutoServerTripleDamage()
                 UseServerBoost("Triple Damage")
             end
             task.wait(5)
+        end
+    end)
+end
+
+function AutoTripleDiamonds()
+    task.spawn(function()
+        print("Thread spawned: AutoTripleDiamonds")
+        while task.wait(1) do
+            -- activate triple damage "potion" if not already active
+            local Save = Lib.Save.Get()
+            if Save["Boosts"]["Triple Diamonds"] == nil or Save["Boosts"]["Triple Diamonds"] < 5 then
+                print("Activating triple diamonds")
+                Fire("Activate Boost", "Triple Diamonds")
+            end
         end
     end)
 end
@@ -513,7 +580,7 @@ function teleportToCenterOfMine()
     end
 
     print("Waiting for teleport to complete...")
-    repeat task.wait() until (humanoidRootPart.Position - centerOfMine).Magnitude <= 1
+    repeat task.wait() until (humanoidRootPart.Position - centerOfMine).Magnitude <= 5
     print("finished")
 end
 
@@ -682,14 +749,19 @@ function progressReportWebhook()
                 ["inline"] = false
             },
             {
+                ["name"] = "Server ID",
+                ["value"] = game.JobId,
+                ["inline"] = false
+            },
+            {
                 ["name"] = ":clock1: Session Run Time",
                 ["value"] = tostring(sessionRunTime),
-                ["inline"] = true
+                ["inline"] = false
             },
             {
                 ["name"] = ":gem: Total Diamonds Earned In Session",
                 ["value"] = totalDiamondsEarnedInSession,
-                ["inline"] = true
+                ["inline"] = false
             },
             {
                 ["name"] = ":clock1: Time In Current Server",
@@ -922,11 +994,6 @@ function main()
     AutoCollectLootBags()
     AutoCollectOrbs()
 
-    -- Auto triple damage / server triple damage
-    if getgenv().settings.autoBoost.AUTO_TRIPLE_DAMAGE then
-        AutoTripleDamage()
-    end
-
     -- Auto collect free gifts
     AutoCollectFreeGifts()
     -- Unlock teleports to get to mystic mine / pixel vault / etc.
@@ -975,6 +1042,13 @@ function main()
             -- Teleport to farm area.
             TeleportToArea("Mystic Mine")
             task.wait(1)
+
+            -- Check if there are coins to farm before we teleport, make platform, etc.
+            if #GetCoins("Mystic Mine") < 5 then
+                print("No coins found in Mystic Mine during initial setup, hopping.")
+                HopToNewServer()
+            end
+
             -- Move character to center of mine area
             teleportToCenterOfMine()
             if getgenv().settings.platforms.CREATE_PLATFORMS then
