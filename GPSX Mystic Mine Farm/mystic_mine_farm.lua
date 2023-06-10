@@ -36,6 +36,8 @@ getgenv().settings = {
 
     resourceSavers = {
         ENABLE_3D_RENDERING = true, -- false to save resources.
+        DISABLE_LOOTBAG_RENDERING = true, -- false to render lootbags.
+        DISABLE_ORB_RENDERING = true, -- false to render orbs.
     },
 
     dataObjects = {
@@ -44,7 +46,7 @@ getgenv().settings = {
     },
 
     muleGems = {
-        MULE_GEMS = false, -- Mule gems to the main account.
+        MULE_GEMS = true, -- Mule gems to the main account.
         MULE_GEMS_THRESHOLD = 100000000000, -- Mule gems when we have more than this many. Default 100b.
         MAIL_RECIPIENT = "gavinnn1000", -- Account to mule gems to.
     },
@@ -163,21 +165,73 @@ function CacheServerList()
     local CACHE_EVERY_SECONDS = 600
     task.spawn(function()
         print("Thread spawned for caching server list to file.")
-        while task.wait(10) do
+        while task.wait(1) do
             local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
             if not file or (tick() - file.serverListCacheTime) > CACHE_EVERY_SECONDS then
                 print("Getting new server list.")
                 FetchServerList()
             end
+            task.wait(10)
         end
     end)
 end
 
 function HopToNewServer()
-    -- Load the data from the file into a local variable.
     local fileData = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+    local THRESHOLD = 200000000
+    local MAX_SERVERS = 3
 
-    -- Make sure CacheServerList has created an initial list before hopping.
+    -- Check diamonds earned in current server.
+    local diamondsGained = getDiamondsEarnedInCurrentServer()
+
+    -- Add server to goodServers if it meets our requirements, ignore otherwise.
+    local serverIndex = findServerIndex(fileData.goodServers, game.JobId)
+    if diamondsGained >= THRESHOLD then
+        if not serverIndex and #fileData.goodServers < MAX_SERVERS then
+            table.insert(fileData.goodServers, {serverId = game.JobId, diamondsGained = diamondsGained})
+        end
+    else
+        if serverIndex then
+            table.remove(fileData.goodServers, serverIndex)
+        end
+    end
+
+    -- Write the updated data to the file before teleport.
+    SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
+
+    if getgenv().settings.webhook.PROGRESS_REPORT_WEBHOOK_ENABLED and not progressReportWebhookSent then
+        print("Sending progress report webhook before server hop.")
+        progressReportWebhook()
+        progressReportWebhookSent = true
+    end
+
+    -- Hop to a new server in our general list if we don't have enough good servers.
+    if #fileData.goodServers >= MAX_SERVERS then
+        local serverData = table.remove(fileData.goodServers, 1)  -- Remove the first server from the list.
+        table.insert(fileData.goodServers, serverData)  -- Append it to the end of the list.
+        print("Teleporting to good server: ", serverData.serverId)
+
+        -- Write the updated list to the file before teleport.
+        SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
+
+        local success, message = pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, serverData.serverId)
+        end)
+
+        if not success then
+            print("Failed to teleport to server: ", message)
+            removeBadServer(serverData.serverId) -- Remove the server from the good server list
+        end
+
+        task.wait(3)
+
+        if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
+            print("Error prompt detected. Removing server.")
+            removeBadServer(serverData.serverId) -- Remove the server from the good server list
+        end
+        return
+    end
+
     if not fileData.serverList or #fileData.serverList == 0 then
         print("Waiting for valid server list data before hopping.")
         return
@@ -185,33 +239,16 @@ function HopToNewServer()
 
     print("Got server list data. Continuing to hop.")
     print("Server list length: ", #fileData.serverList)
-
-    -- Print the length of visitedServers
     print("Visited servers count: ", countTable(fileData.visitedServers))
 
     for _, v in ipairs(fileData.serverList) do
-        -- we'll try only joining low population servers to avoid an empty Mystic Mine.
         if v.playing <= getgenv().settings.serverHop.MAX_PLAYERS_IN_SERVER and not fileData.visitedServers[v.id] then
-            -- Add the server id to the visited servers.
             fileData.visitedServers[v.id] = true
-
-            -- Write the updated data to the file before teleport since this is where our script will lose state.
             SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
-
-            if getgenv().settings.webhook.PROGRESS_REPORT_WEBHOOK_ENABLED then
-                -- Only send the progress report webhook once in case the server hop fails.
-                if not progressReportWebhookSent then
-                    print("Sending progress report webhook before server hop.")
-                    progressReportWebhook()
-                    progressReportWebhookSent = true
-                end
-            end
-
             print("Teleporting to server: ", v.id)
             local success, message = pcall(function()
                 TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
             end)
-
             if not success then
                 print("Failed to teleport to server: ", message)
             end
@@ -219,9 +256,25 @@ function HopToNewServer()
             return
         end
     end
-    -- Cache a new server list if we didn't find any that meet our criteria.
-    print("No suitable server found. Fetching a new server list.")
-    FetchServerList()
+end
+
+function findServerIndex(servers, serverId)
+    for index, server in ipairs(servers) do
+        if server.serverId == serverId then
+            return index
+        end
+    end
+    return nil
+end
+
+function removeBadServer(serverId)
+    local fileData = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+    local index = findServerIndex(fileData.goodServers, serverId)
+    if index then
+        table.remove(fileData.goodServers, index)
+        SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(fileData))
+        print("Removed server from goodServers: ", serverId)
+    end
 end
 
 function EnsureServerLoads()
@@ -249,62 +302,66 @@ function StartSession()
         print("Creating gpsx folder.")
         makefolder(getgenv().settings.dataObjects.DATA_FOLDER_NAME)
     end
+    
+    local currentTime = os.time()
     local file
+
     if isfile(getgenv().settings.dataObjects.DATA_FILE_PATH) then
         file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
-
-        -- Print out the lastActiveTime and sessionStartTime values for debugging.
-        print("Current lastActiveTime: " .. file.lastActiveTime)
-        print("Current sessionStartTime: " .. file.sessionStartTime)
-
-        local currentTime = os.time()
         local idleTime = os.difftime(currentTime, file.lastActiveTime)
 
-        -- Print out the idleTime.
+        -- Print debug information.
+        print("Current lastActiveTime: " .. file.lastActiveTime)
+        print("Current sessionStartTime: " .. file.sessionStartTime)
         print("Idle time: " .. idleTime)
 
-        -- If the last activity was over 5 minutes ago (300 seconds), start a new session.
         if idleTime > 300 then
             print("Starting new session.")
-            file.sessionStartTime = currentTime
-            -- Reset the session-specific stats.
-            file.totalDiamondsEarned = 0
-            file.sessionStartRealTime = currentTime
+            file = InitializeSession(currentTime)
         else
             print("Continuing existing session.")
+            file.lastActiveTime = currentTime
         end
-        file.lastActiveTime = currentTime
     else
-        local currentTime = os.time()
-        file = {
-            sessionStartTime = currentTime,
-            lastActiveTime = currentTime,
-            serverListCacheTime = 0,
-            serverList = {},
-            visitedServers = {},
-            totalDiamondsEarned = 0,
-            sessionStartRealTime = currentTime,
-        }
         print("Starting new session.")
+        file = InitializeSession(currentTime)
     end
+    
     SafeWriteFile(getgenv().settings.dataObjects.DATA_FILE_PATH, HttpService:JSONEncode(file))
     repeat task.wait(1) until isfile(getgenv().settings.dataObjects.DATA_FILE_PATH)
-    print("StartSession wrote content to " ..getgenv().settings.dataObjects.DATA_FILE_PATH)
+    print("StartSession wrote content to " .. getgenv().settings.dataObjects.DATA_FILE_PATH)
 end
 
-function HopOnErrorPrompt()
-    -- hop to a new server if we get an error prompt
-    task.spawn(function()
-        print("Thread spawned for hopping on error prompt.")
-        while task.wait(5) do
-            if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
-                print("Error prompt detected. Hopping to a new server.")
-                task.wait(5)
-                HopToNewServer()
-            end
-        end
-    end)
+function InitializeSession(currentTime)
+    return {
+        sessionStartTime = currentTime,
+        lastActiveTime = currentTime,
+        serverListCacheTime = 0,
+        serverList = {},
+        visitedServers = {},
+        totalDiamondsEarned = 0,
+        sessionStartRealTime = currentTime,
+        goodServers = {},
+        goodServersQueue = {},
+    }
 end
+
+-- function HopOnErrorPrompt()
+--     -- hop to a new server if we get an error prompt
+--     task.spawn(function()
+--         print("Thread spawned for hopping on error prompt.")
+--         while task.wait(5) do
+--             if game.CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt") then
+--                 print("Error prompt detected. Hopping to a new server.")
+
+--                 removeBadServer(game.JobId)
+
+--                 task.wait(5)
+--                 HopToNewServer()
+--             end
+--         end
+--     end)
+-- end
 
 function CheckServerTimeout()
     local serverJoinTime = tick()
@@ -469,6 +526,12 @@ function AutoCollectLootBags()
     -- end)
 
     Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
+        if getgenv().settings.resourceSavers.DISABLE_LOOTBAG_RENDERING then
+            pcall(function()
+                v.Transparency = 1
+                v.ParticleEmitter:Destroy()
+            end)
+        end
         Fire("Collect Lootbag", v.Name, v.Position)
     end)
 end
@@ -485,6 +548,11 @@ function AutoCollectOrbs()
     -- end)
 
     Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
+        if getgenv().settings.resourceSavers.DISABLE_ORB_RENDERING then
+            pcall(function()
+                v.Orb.Enabled = false
+            end)
+        end
         Fire("Claim Orbs", {v.Name})
     end)
 end
@@ -681,6 +749,30 @@ function farmOranges()
     end
 end
 
+function formatGems(num)
+    local units = {"", "K", "M", "B", "T"}
+
+    -- Get the magnitude of the number.
+    local magnitude = math.floor(math.log10(num) / 3) + 1
+
+    -- Limit the magnitude to the number of units we have.
+    if magnitude > #units then
+        magnitude = #units
+    end
+
+    -- Format the number.
+    local result = num / math.pow(10, (magnitude - 1) * 3)
+
+    -- Round to one decimal place.
+    result = math.floor(result * 10 + 0.5) / 10
+
+    -- Add the unit to the end of the number.
+    result = result .. units[magnitude]
+
+    return result
+end
+
+
 -- Webhook alert for diamonds mailed.
 function mailWebhook(playerName, mailRecipient, diamondsSent)
     local url = getgenv().settings.webhook.WEBHOOK_URL
@@ -695,7 +787,7 @@ function mailWebhook(playerName, mailRecipient, diamondsSent)
         ["fields"] = {
             {
                 ["name"] = "Diamonds sent: ",
-                ["value"] = formatNumber(diamondsSent),
+                ["value"] = formatGems(diamondsSent),
                 ["inline"] = false
             },
             {
@@ -735,6 +827,21 @@ function progressReportWebhook()
     local diamondsEarnedInCurrentServer = getDiamondsEarnedInCurrentServer(true)
     local timeInCurrentServer = getTimeInCurrentServer()
 
+    local file = HttpService:JSONDecode(SafeReadFile(getgenv().settings.dataObjects.DATA_FILE_PATH))
+    local goodServerCount = #file.goodServers
+    local currentServerId = game.JobId
+    local goodServersIds = {}
+    local isCurrentServerGood = "No"
+
+    for _, serverData in ipairs(file.goodServers) do
+        table.insert(goodServersIds, serverData.serverId)
+        if serverData.serverId == currentServerId then
+            isCurrentServerGood = "Yes"
+        end
+    end
+
+    local goodServersList = table.concat(goodServersIds, ", ") -- Concatenates the server ids with commas    
+
     local unixtime = os.time()
     local format = "%H:%M:%S | %a, %d %b %Y"
     local timei = os.date(format, unixtime)
@@ -746,11 +853,6 @@ function progressReportWebhook()
             {
                 ["name"] = ":pregnant_man: Account",
                 ["value"] = "||"..localPlayer.Name.."||",
-                ["inline"] = false
-            },
-            {
-                ["name"] = "Server ID",
-                ["value"] = game.JobId,
                 ["inline"] = false
             },
             {
@@ -771,6 +873,26 @@ function progressReportWebhook()
             {
                 ["name"] = ":gem: Diamonds Earned In Current Server",
                 ["value"] = diamondsEarnedInCurrentServer,
+                ["inline"] = false
+            },
+            {
+                ["name"] = ":white_check_mark: Good Servers",
+                ["value"] = goodServerCount,
+                ["inline"] = false
+            },
+            {
+                ["name"] = ":id: Current Server ID",
+                ["value"] = currentServerId,
+                ["inline"] = false
+            },
+            {
+                ["name"] = ":white_check_mark: Good Servers List",
+                ["value"] = goodServersList,
+                ["inline"] = false
+            },
+            {
+                ["name"] = ":question: Is Current Server Good?",
+                ["value"] = isCurrentServerGood,
                 ["inline"] = false
             },
         },
@@ -811,6 +933,7 @@ end
 
 -- Mail all gems to getgenv().mailRecipient
 function MailDiamonds()
+    task.wait(5)
     local mailboxCFrame = CFrame.new(254.149002, 98.2168579, 349.55304, 0.965907216, -6.73597569e-08, -0.258888513, 6.48122409e-08, 1, -1.83752729e-08, 0.258888513, 9.69664127e-10, 0.965907216)
     local localPlayerName = localPlayer.Name
     local mailRecipient = getgenv().settings.muleGems.MAIL_RECIPIENT
@@ -821,17 +944,34 @@ function MailDiamonds()
     task.wait(5)
     -- Teleport to mailbox
     game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = mailboxCFrame
-    repeat task.wait() until game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame == mailboxCFrame
-    Invoke("Send Mail", {
-        ["Recipient"] = mailRecipient,
-        ["Diamonds"] = gemsToSend,
-        ["Pets"] = {},
-        ["Message"] = msg
-    })
-    task.wait(1)
-    if getgenv().settings.webhook.MULE_WEBHOOK_ENABLED then
-        print("Sending webhook to alert that we mailed our gems.")
-        mailWebhook(localPlayerName, mailRecipient, gemsToSend)
+
+    local playerPosition
+    local distanceToMailbox
+    repeat
+        print("Waiting until we're at the mailbox before mailing gems.")
+        playerPosition = game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+        distanceToMailbox = (mailboxCFrame.p - playerPosition).Magnitude
+        task.wait()
+    until distanceToMailbox < 5
+
+    task.wait(2)
+
+    local success, message = pcall(function()
+        Invoke("Send Mail", {
+            ["Recipient"] = mailRecipient,
+            ["Diamonds"] = gemsToSend,
+            ["Message"] = msg,
+            ["Pets"] = {}
+        })
+    end)
+    if not success then
+        print("Failed to send mail: ", message)
+    else
+        print("Successfully sent mail.")
+        if getgenv().settings.webhook.MULE_WEBHOOK_ENABLED then
+            print("Sending webhook to alert that we mailed our gems.")
+            mailWebhook(localPlayerName, mailRecipient, gemsToSend)
+        end
     end
 end
 
@@ -958,7 +1098,7 @@ function main()
         -- Tracks session stats in a json file
         StartSession()
         -- Hop servers if we get an error prompt (error 277, 279, etc)
-        HopOnErrorPrompt()
+        -- HopOnErrorPrompt()
         if getgenv().settings.serverHop.HOP_ON_TIMEOUT then
             CheckServerTimeout()
         end
