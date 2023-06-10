@@ -220,22 +220,26 @@ function Util.AutoFarm()
                     local selectedAreas = getgenv().Options.FarmAreaDropdown.Value  -- Get list of selected areas
                     for selectedArea, enabled in next, selectedAreas do  -- Iterate through each selected area
                         task.wait(0.1)
-                        local coins = Util.GetCoins(selectedArea)
+                        
+                        local coins
+                        repeat
+                            coins = Util.GetCoins(selectedArea)  -- Get the most current list of coins
             
-                        for i = 1, #coins do
-                            if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
-                                print("Found child coin, idx: " .. coins[i].index)
+                            for i = 1, #coins do
+                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                    print("Found child coin, idx: " .. coins[i].index)
             
-                                for _, pet in pairs(myPets) do
-                                    print("Pet loop, idx: " .. tostring(_))
-                                    task.spawn(function()
-                                        Util.FarmCoin(coins[i].index, pet.uid)
-                                    end)
+                                    for _, pet in pairs(myPets) do
+                                        print("Pet loop, idx: " .. tostring(_))
+                                        task.spawn(function()
+                                            Util.FarmCoin(coins[i].index, pet.uid)
+                                        end)
+                                    end
                                 end
-                            end
             
-                            repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
-                        end
+                                repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
+                            end
+                        until #coins == 0  -- Repeat as long as there are coins in the selected area
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Nearest" then
                     -- Farm nearest coins
