@@ -267,6 +267,20 @@ function createGUI(group, areas, petLookupTable)
         Tooltip = "Turn on to disable graphics rendering.",
     })
 
+    -- Disable lootbag rendering toggle
+    ResourceSaversGroupBoxLeft:AddToggle("DisableLootbagRenderingToggle", {
+        Text = "Disable Lootbag Rendering",
+        Default = false,
+        Tooltip = "Turn on to disable lootbag rendering.",
+    })
+
+    -- Disable orb rendering toggle
+    ResourceSaversGroupBoxLeft:AddToggle("DisableOrbRenderingToggle", {
+        Text = "Disable Orb Rendering",
+        Default = false,
+        Tooltip = "Turn on to disable orb rendering.",
+    })
+
     -- Bank functions group box
     local BankFunctionsGroupBox = Tabs["Misc"]:AddLeftGroupbox("Bank Functions")
 

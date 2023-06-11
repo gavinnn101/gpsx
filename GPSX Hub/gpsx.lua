@@ -182,6 +182,18 @@ function loadScript(arg)
         Util.SetGraphicsRendering()
     end)
 
+    -- DisableLootbagRenderingToggle
+    getgenv().Toggles.DisableLootbagRenderingToggle:OnChanged(function()
+        print("Disable Lootbag Rendering: ", getgenv().Toggles.DisableLootbagRenderingToggle.Value)
+        Util.DisableLootbagRendering()
+    end)
+
+    -- DisableOrbRenderingToggle
+    getgenv().Toggles.DisableOrbRenderingToggle:OnChanged(function()
+        print("Disable Orb Rendering: ", getgenv().Toggles.DisableOrbRenderingToggle.Value)
+        Util.DisableOrbRendering()
+    end)
+
 end
 
 function main()

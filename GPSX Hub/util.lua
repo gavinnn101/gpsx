@@ -5,21 +5,25 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+
 local Util = {}
 
-local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
+local Network = require(ReplicatedStorage.Library.Client.Network)
 local Fire, Invoke = Network.Fire, Network.Invoke
 
-local Lib = require(game.ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
+local Lib = require(ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Library"))
 while not Lib.Loaded do
-    game:GetService("RunService").Heartbeat:Wait()
+    RunService.Heartbeat:Wait()
 end
 
--- Services
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-
-local Client = require(game.ReplicatedStorage.Library.Client)
+local Client = require(ReplicatedStorage.Library.Client)
 local tp = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 local menus = game.Players.LocalPlayer.PlayerGui.Main.Right
 
@@ -57,14 +61,13 @@ function Util.loadAccounts()
     end
     -- Load accounts from JSON file
     print("Loading accounts.json")
-    local HttpService = game:GetService('HttpService')
     local accounts = HttpService:JSONDecode(readfile("gpsx/accounts.json"))
     return accounts
 end
 
 function Util.bypassAC()
     -- https://v3rmillion.net/showthread.php?tid=1198487
-    local Blunder = require(game:GetService("ReplicatedStorage"):FindFirstChild("BlunderList", true))
+    local Blunder = require(ReplicatedStorage:FindFirstChild("BlunderList", true))
     local OldGet = Blunder.getAndClear
 
     setreadonly(Blunder, false)
@@ -107,7 +110,7 @@ function Util.GetEggData()
     --Generate Egg Data
     local eggsData = {}
     -- Loop over Eggs / worlds folders (Fantasty, Easter, etc.)
-    for i, v in ipairs(game:GetService("ReplicatedStorage")["__DIRECTORY"].Eggs:GetChildren()) do
+    for i, v in ipairs(ReplicatedStorage["__DIRECTORY"].Eggs:GetChildren()) do
         -- Loop over Eggs in folder (Cracked Egg, etc.) (ie = index, ve = value / egg's name)
         for ie, ve in ipairs(v:GetChildren()) do
             -- Find moduleScript for current egg name (ve)
@@ -137,7 +140,7 @@ end
 -- Get all areas
 function Util.GetAreas()
     local tmpAreas = {}
-    local worlds = game:GetService("ReplicatedStorage")["__DIRECTORY"].Areas:GetChildren()
+    local worlds = ReplicatedStorage["__DIRECTORY"].Areas:GetChildren()
     -- Loop over worlds folders (Fantasty, Easter, etc.)
     for i, v in ipairs(worlds) do
         -- Loop over areas in the current world folder
@@ -226,7 +229,7 @@ function Util.AutoFarm()
                             coins = Util.GetCoins(selectedArea)  -- Get the most current list of coins
             
                             for i = 1, #coins do
-                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index) then
                                     print("Found child coin, idx: " .. coins[i].index)
             
                                     for _, pet in pairs(myPets) do
@@ -237,7 +240,7 @@ function Util.AutoFarm()
                                     end
                                 end
             
-                                repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[i].index)
+                                repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index)
                             end
                         until #coins == 0  -- Repeat as long as there are coins in the selected area
                     end
@@ -246,7 +249,7 @@ function Util.AutoFarm()
                     -- WE SHOULD TRY NEAREST METHOD FROM HUGE GAMES INSTEAD.
                     local NearestOne = nil
                     local NearestDistance = math.huge
-                    for i,v in pairs(game:GetService("Workspace")["__THINGS"].Coins:GetChildren()) do
+                    for i,v in pairs(Workspace["__THINGS"].Coins:GetChildren()) do
                         task.wait(0.1)
                         if (v.POS.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < NearestDistance then
                             NearestOne = v
@@ -257,13 +260,13 @@ function Util.AutoFarm()
                         task.wait(0.1)
                         task.spawn(function()
                             Util.FarmCoin(NearestOne.Name, pet.uid)
-                            repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(NearestOne)
+                            repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(NearestOne)
                         end)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Multi Target" then
                     -- Multi target farm
                     local selectedAreas = getgenv().Options.FarmAreaDropdown.Value  -- Get list of selected areas
-                    local Things = game:GetService("Workspace")["__THINGS"]
+                    local Things = Workspace["__THINGS"]
                     local Coins = Things.Coins
                     local numPets = #myPets
                     local coinFarmTimeout = 4
@@ -290,7 +293,7 @@ function Util.AutoFarm()
                             end
                         end
                         -- We get kicked if we farm too fast. Trying to slow it down with this.
-                        task.wait(0.5)
+                        task.wait(0.7)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Highest Value" then
                     -- Farm highest value coin
@@ -298,7 +301,7 @@ function Util.AutoFarm()
                     for _, pet in pairs(myPets) do
                         task.spawn(function() task.wait() Util.FarmCoin(coins[1].index, pet.uid) end)
                     end
-                    repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(coins[1].index) or #game:GetService("Workspace")["__THINGS"].Pets:GetChildren() == 0
+                    repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(coins[1].index) or #Workspace["__THINGS"].Pets:GetChildren() == 0
                 end
             end
         end)
@@ -333,11 +336,11 @@ function Util.GetComets(area)
 end
 
 function Util.HopToNewServer()
-    local Servers = game.HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
+    local Servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/6284583030/servers/Public?sortOrder=Asc&limit=100"))
     for i,v in pairs(Servers.data) do
       if v.playing ~= v.maxPlayers then
         print("teleporting to server: ", v.id)
-        game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, v.id)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
         repeat task.wait() until game.JobId == v.id and game:IsLoaded()
       end
     end
@@ -415,7 +418,7 @@ function Util.AutoCometFarm()
                             local cometCoinObjects = Util.GetComets(cometArea)
                             local myPets = Util.GetMyPets()
                             for i = 1, #cometCoinObjects do
-                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
+                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
                                     print("Found child coin, idx: " ..cometCoinObjects[i].index)
                                     for _, pet in pairs(myPets) do
                                         print("pet loop, idx: " .. tostring(_))
@@ -424,7 +427,7 @@ function Util.AutoCometFarm()
                                         end)
                                     end
                                 end
-                                repeat task.wait() until not game:GetService("Workspace")["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index)
+                                repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index)
                             end
                         else
                             print("Comet already destroyed.")
@@ -442,7 +445,7 @@ end
 
 -- Returns the CFrame of the Egg Dispenser
 function Util.GetEggDispenserLocation(eggAreaName)
-    local eggs = game:GetService("Workspace")["__MAP"].Eggs
+    local eggs = Workspace["__MAP"].Eggs
 
     for _, eggArea in pairs(eggs:GetChildren()) do
         local eggAreaString = tostring(eggArea)
@@ -503,9 +506,9 @@ end
 
 function Util.SkipEggAnimation()
     if getgenv().Toggles.SkipEggAnimationToggle.Value then
-        game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.Game["Open Eggs"].Disabled = true
+        Players.LocalPlayer.PlayerScripts.Scripts.Game["Open Eggs"].Disabled = true
     else
-        game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.Game["Open Eggs"].Disabled = false
+        Players.LocalPlayer.PlayerScripts.Scripts.Game["Open Eggs"].Disabled = false
     end
 end
 
@@ -515,7 +518,7 @@ function Util.CollectFreeGifts()
         task.spawn(function()
             while getgenv().Toggles.AutoCollectFreeGiftsToggle.Value do
                 print("Checking for free gifts...")
-                local txt = game:GetService("Players").LocalPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
+                local txt = Players.LocalPlayer.PlayerGui.FreeGiftsTop.Button.Timer.Text
                 if txt == "Ready!" then
                     Util.notify("Collecting gifts...")
                     for i = 1,12 do
@@ -645,7 +648,7 @@ function Util.GetServerBoostData()
         -- print("Boost name: " ..boostName)
         -- print("Boost table: " ..tostring(boostTable))
         for _, timeRemaining in pairs(boostTable) do
-            print(timeRemaining)
+            -- print(timeRemaining)
             activeBoostsData[boostName] = timeRemaining
         end
     end
@@ -719,7 +722,7 @@ function Util.UnlockGamepasses()
     task.spawn(function()
         if getgenv().Toggles.UnlockGamepassesToggle then
             Lib.Gamepasses.Owns = function() return true end
-            local teleportScript = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+            local teleportScript = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
             if teleportScript.UpdateAreas then
                 teleportScript.UpdateAreas()
                 teleportScript.UpdateBottom()
@@ -727,7 +730,7 @@ function Util.UnlockGamepasses()
         else
             Lib.Gamepasses.Owns = function(p1, p2)
                 if not p2 then
-                    p2 = game:GetService("Players").LocalPlayer;
+                    p2 = Players.LocalPlayer;
                 end;
                 v2 = Lib.Save.Get();
                 if not v2 then
@@ -741,42 +744,25 @@ function Util.UnlockGamepasses()
                 end;
                 return false;
             end;
-            local teleportScript = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+            local teleportScript = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
             teleportScript.UpdateAreas()
             teleportScript.UpdateBottom()
             -- This doesn't seem to work anymore but can't easily see why. Path looks correct and I see calls to UpdateButton. No errors in either console.
             -- Unlock gamepasses in Huge Games doesn't seem to unlock hoverboard either.
-            local hover = getsenv(game:GetService("Players").LocalPlayer.PlayerScripts.Scripts.Game.Hoverboard)
+            local hover = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.Game.Hoverboard)
             hover.UpdateButton()
         end
     end)
 end
 
-function Util.AutoCollectOrbs()
-    if getgenv().Toggles.AutoCollectOrbsToggle.Value then
-        Util.notify("Auto orbs enabled")
-        task.spawn(function()
-            while getgenv().Toggles.AutoCollectOrbsToggle.Value do
-                local orbs = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Orbs")
-                for i,v in pairs(orbs:GetChildren()) do
-                    v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-                end
-                task.wait(1)
-            end
-        end)
-    else
-        Util.notify("Auto orbs disabled")
-    end
-end
-
 function Util.AntiAfk()
     if getgenv().Toggles.AntiAfkToggle.Value then
         Util.notify("Anti afk enabled")
-        for i,v in pairs(getconnections(game:GetService('Players').LocalPlayer.Idled)) do
+        for i,v in pairs(getconnections(Players.LocalPlayer.Idled)) do
             v:Disable()
         end
     else
-        for i,v in pairs(getconnections(game:GetService('Players').LocalPlayer.Idled)) do
+        for i,v in pairs(getconnections(Players.LocalPlayer.Idled)) do
             v:Enable()
         end
         Util.notify("Anti afk disabled")
@@ -808,19 +794,65 @@ function Util.unlockHackerPortal()
     Fire("Hacker Portal Unlocked")
 end
 
+function Util.DisableOrbRendering()
+    Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
+        if getgenv().Toggles.DisableOrbRenderingToggle then
+            pcall(function()
+                v.Orb.Enabled = false
+            end)
+        end
+    end)
+end
+
+function Util.AutoCollectOrbs()
+    if getgenv().Toggles.AutoCollectOrbsToggle.Value then
+        Util.notify("Auto orbs enabled")
+        task.spawn(function()
+            -- while getgenv().Toggles.AutoCollectOrbsToggle.Value do
+            --     local orbs = Workspace["__THINGS"]:FindFirstChild("Orbs")
+            --     for i,v in pairs(orbs:GetChildren()) do
+            --         v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+            --     end
+            --     task.wait(1)
+            -- end
+
+            Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
+                Fire("Claim Orbs", {v.Name})
+            end)
+        end)
+    else
+        Util.notify("Auto orbs disabled")
+    end
+end
+
+function Util.DisableLootbagRendering()
+    Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
+        if getgenv().Toggles.DisableLootbagRenderingToggle then
+            pcall(function()
+                v.Transparency = 1
+                v.ParticleEmitter:Destroy()
+            end)
+        end
+    end)
+end
+
 -- Auto collect lootbags
 function Util.AutoCollectLootbags()
     if getgenv().Toggles.AutoCollectLootbagsToggle.Value then
         Util.notify("Auto lootbags enabled")
         task.spawn(function()
-            while getgenv().Toggles.AutoCollectLootbagsToggle.Value do
-                local lootbags = game:GetService("Workspace")["__THINGS"]:FindFirstChild("Lootbags")
-                for i,v in pairs(lootbags:GetChildren()) do
-                    v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-                    task.wait(0.1)
-                end
-                task.wait(1)
-            end
+            -- while getgenv().Toggles.AutoCollectLootbagsToggle.Value do
+            --     local lootbags = Workspace["__THINGS"]:FindFirstChild("Lootbags")
+            --     for i,v in pairs(lootbags:GetChildren()) do
+            --         v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+            --         task.wait(0.1)
+            --     end
+            --     task.wait(1)
+            -- end
+
+            Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
+                Fire("Collect Lootbag", v.Name, v.Position)
+            end)
         end)
     else
         Util.notify("Auto lootbags disabled")
@@ -912,7 +944,6 @@ function Util.SetGraphicsRendering()
 end
 
 function Util.GetBankName(ownerID)
-    local Players = game:GetService("Players")
     local name = Players:GetNameFromUserIdAsync(ownerID)
     return name
 end
@@ -1182,7 +1213,7 @@ end
 function Util.BuildPetDataLookupTable()
     print("Building pet data lookup table")
     local petLookupTable = {}
-    local pets = game:GetService("ReplicatedStorage")["__DIRECTORY"].Pets:GetChildren()
+    local pets = ReplicatedStorage["__DIRECTORY"].Pets:GetChildren()
 
     for _, pet in pairs(pets) do
         local petID = string.match(pet.Name, "%d+")
