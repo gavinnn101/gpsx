@@ -8,8 +8,6 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
 
-local Things = Workspace["__THINGS"]
-
 getgenv().settings = {
     fruitFarm = {
         FARM_FRUIT = true, -- Will farm fruit before farming mystic mine. 
@@ -1123,7 +1121,9 @@ function main()
 
     localPlayer = Players.LocalPlayer
     repeat task.wait() until isPlayerValid()
+
     tp = getsenv(localPlayer.PlayerScripts.Scripts.GUIs.Teleport)
+    Things = Workspace["__THINGS"]
 
     if not getgenv().settings.resourceSavers.ENABLE_3D_RENDERING then
         -- Disable 3d rendering.
