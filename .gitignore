@@ -43,4 +43,4 @@ luac.out
 *.ffs_db
 *.code-workspace
 *.txt
-test.lua
+testing/
