@@ -26,6 +26,7 @@ end
 local Client = require(ReplicatedStorage.Library.Client)
 local tp = getsenv(Players.LocalPlayer.PlayerScripts.Scripts.GUIs.Teleport)
 local menus = game.Players.LocalPlayer.PlayerGui.Main.Right
+local Things = Workspace["__THINGS"]
 
 -- Hooking invoke/fire functions to return true.
 local old
@@ -229,7 +230,7 @@ function Util.AutoFarm()
                             coins = Util.GetCoins(selectedArea)  -- Get the most current list of coins
             
                             for i = 1, #coins do
-                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index) then
+                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and Things.Coins:FindFirstChild(coins[i].index) then
                                     print("Found child coin, idx: " .. coins[i].index)
             
                                     for _, pet in pairs(myPets) do
@@ -240,7 +241,7 @@ function Util.AutoFarm()
                                     end
                                 end
             
-                                repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(coins[i].index)
+                                repeat task.wait() until not Things.Coins:FindFirstChild(coins[i].index)
                             end
                         until #coins == 0  -- Repeat as long as there are coins in the selected area
                     end
@@ -249,7 +250,7 @@ function Util.AutoFarm()
                     -- WE SHOULD TRY NEAREST METHOD FROM HUGE GAMES INSTEAD.
                     local NearestOne = nil
                     local NearestDistance = math.huge
-                    for i,v in pairs(Workspace["__THINGS"].Coins:GetChildren()) do
+                    for i,v in pairs(Things.Coins:GetChildren()) do
                         task.wait(0.1)
                         if (v.POS.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < NearestDistance then
                             NearestOne = v
@@ -260,13 +261,12 @@ function Util.AutoFarm()
                         task.wait(0.1)
                         task.spawn(function()
                             Util.FarmCoin(NearestOne.Name, pet.uid)
-                            repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(NearestOne)
+                            repeat task.wait() until not Things.Coins:FindFirstChild(NearestOne)
                         end)
                     end
                 elseif getgenv().Options.FarmTypeDropdown.Value == "Multi Target" then
                     -- Multi target farm
                     local selectedAreas = getgenv().Options.FarmAreaDropdown.Value  -- Get list of selected areas
-                    local Things = Workspace["__THINGS"]
                     local Coins = Things.Coins
                     local numPets = #myPets
                     local coinFarmTimeout = 4
@@ -301,7 +301,7 @@ function Util.AutoFarm()
                     for _, pet in pairs(myPets) do
                         task.spawn(function() task.wait() Util.FarmCoin(coins[1].index, pet.uid) end)
                     end
-                    repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(coins[1].index) or #Workspace["__THINGS"].Pets:GetChildren() == 0
+                    repeat task.wait() until not Things.Coins:FindFirstChild(coins[1].index) or #Things.Pets:GetChildren() == 0
                 end
             end
         end)
@@ -418,7 +418,7 @@ function Util.AutoCometFarm()
                             local cometCoinObjects = Util.GetComets(cometArea)
                             local myPets = Util.GetMyPets()
                             for i = 1, #cometCoinObjects do
-                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index) then
+                                if getgenv().Toggles.AutoFarmEnabledToggle.Value and Things.Coins:FindFirstChild(cometCoinObjects[i].index) then
                                     print("Found child coin, idx: " ..cometCoinObjects[i].index)
                                     for _, pet in pairs(myPets) do
                                         print("pet loop, idx: " .. tostring(_))
@@ -427,7 +427,7 @@ function Util.AutoCometFarm()
                                         end)
                                     end
                                 end
-                                repeat task.wait() until not Workspace["__THINGS"].Coins:FindFirstChild(cometCoinObjects[i].index)
+                                repeat task.wait() until not Things.Coins:FindFirstChild(cometCoinObjects[i].index)
                             end
                         else
                             print("Comet already destroyed.")
@@ -795,7 +795,7 @@ function Util.unlockHackerPortal()
 end
 
 function Util.DisableOrbRendering()
-    Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
+    Things.Orbs.ChildAdded:Connect(function(v)
         if getgenv().Toggles.DisableOrbRenderingToggle then
             pcall(function()
                 v.Orb.Enabled = false
@@ -809,14 +809,14 @@ function Util.AutoCollectOrbs()
         Util.notify("Auto orbs enabled")
         task.spawn(function()
             -- while getgenv().Toggles.AutoCollectOrbsToggle.Value do
-            --     local orbs = Workspace["__THINGS"]:FindFirstChild("Orbs")
+            --     local orbs = Things:FindFirstChild("Orbs")
             --     for i,v in pairs(orbs:GetChildren()) do
             --         v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
             --     end
             --     task.wait(1)
             -- end
 
-            Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
+            Things.Orbs.ChildAdded:Connect(function(v)
                 Fire("Claim Orbs", {v.Name})
             end)
         end)
@@ -826,7 +826,7 @@ function Util.AutoCollectOrbs()
 end
 
 function Util.DisableLootbagRendering()
-    Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
+    Things.Lootbags.ChildAdded:Connect(function(v)
         if getgenv().Toggles.DisableLootbagRenderingToggle then
             pcall(function()
                 v.Transparency = 1
@@ -842,7 +842,7 @@ function Util.AutoCollectLootbags()
         Util.notify("Auto lootbags enabled")
         task.spawn(function()
             -- while getgenv().Toggles.AutoCollectLootbagsToggle.Value do
-            --     local lootbags = Workspace["__THINGS"]:FindFirstChild("Lootbags")
+            --     local lootbags = Things:FindFirstChild("Lootbags")
             --     for i,v in pairs(lootbags:GetChildren()) do
             --         v.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
             --         task.wait(0.1)
@@ -850,7 +850,7 @@ function Util.AutoCollectLootbags()
             --     task.wait(1)
             -- end
 
-            Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
+            Things.Lootbags.ChildAdded:Connect(function(v)
                 Fire("Collect Lootbag", v.Name, v.Position)
             end)
         end)

@@ -8,6 +8,8 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
 
+local Things = Workspace["__THINGS"]
+
 getgenv().settings = {
     fruitFarm = {
         FARM_FRUIT = true, -- Will farm fruit before farming mystic mine. 
@@ -422,7 +424,7 @@ function GetCoins(area)
 end
 
 function coinExists(coinIndex)
-    return Workspace["__THINGS"].Coins:FindFirstChild(coinIndex) ~= nil
+    return Things.Coins:FindFirstChild(coinIndex) ~= nil
 end
 
 function farmMysticMine(coinTable, equippedPets)
@@ -504,13 +506,13 @@ end
 
 -- Returns table of lootbags
 function GetLootBags()
-    local lootbags = Workspace["__THINGS"]:FindFirstChild("Lootbags")
+    local lootbags = Things:FindFirstChild("Lootbags")
     return lootbags:GetChildren()
 end
 
 -- Returns table of orbs
 function GetOrbs()
-    local orbs = Workspace["__THINGS"]:FindFirstChild("Orbs")
+    local orbs = Things:FindFirstChild("Orbs")
     return orbs:GetChildren()
 end
 
@@ -525,7 +527,7 @@ function AutoCollectLootBags()
     --     end
     -- end)
 
-    Workspace['__THINGS'].Lootbags.ChildAdded:Connect(function(v)
+    Things.Lootbags.ChildAdded:Connect(function(v)
         if getgenv().settings.resourceSavers.DISABLE_LOOTBAG_RENDERING then
             pcall(function()
                 v.Transparency = 1
@@ -547,7 +549,7 @@ function AutoCollectOrbs()
     --     end
     -- end)
 
-    Workspace['__THINGS'].Orbs.ChildAdded:Connect(function(v)
+    Things.Orbs.ChildAdded:Connect(function(v)
         if getgenv().settings.resourceSavers.DISABLE_ORB_RENDERING then
             pcall(function()
                 v.Orb.Enabled = false
@@ -713,7 +715,6 @@ end
 function farmOranges()
     local CurrentFarmingPets = {}
     local selectedAreas = {"Pixel Vault"}
-    local Things = Workspace["__THINGS"]
     local Coins = Things.Coins
 
     print("Getting equipped pets")
